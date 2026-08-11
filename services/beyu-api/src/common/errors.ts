@@ -23,10 +23,14 @@ export function notFound(resource: string, id?: string): never {
 }
 
 /** A state transition the domain forbids. */
-export function invalidTransition(resource: string, from: string, to: string): never {
-  throw new ConflictException(
-    `A ${resource} in state ${from} cannot move to ${to}.`,
-  );
+export function invalidTransition(
+  resource: string,
+  from: string,
+  to: string,
+  because?: string,
+): never {
+  const base = `A ${resource} in state ${from} cannot move to ${to}.`;
+  throw new ConflictException(because ? `${base} ${because}` : base);
 }
 
 /** A rule violation in the request itself. */

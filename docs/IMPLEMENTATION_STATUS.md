@@ -20,7 +20,9 @@ working, what is partial and what has not been built.
 The **foundation is production-grade and proven**: the data model, the security
 model, the authorization engine, the audit chain, the waterfall calculation
 engine and the API skeleton. Authentication and the organization domain are
-now built end to end. **209 automated tests pass.**
+now built end to end, as is the OS federation seam that lets BEYU HEALTH OS,
+BEYU AGRICULTURE OS, BEYU FINANCE OS and BEYU FOUNDATION OS attach
+independently. **263 automated tests pass.**
 
 The **domain API surface and both frontends are not built.** BEYU OS v1.0 as
 delivered here is a backend foundation, not a usable end-user product. Anyone
@@ -37,6 +39,7 @@ planning against it should read the DEFERRED section carefully.
 | API runtime and cross-cutting concerns | IMPLEMENTED |
 | Authentication endpoints and sessions | IMPLEMENTED |
 | Organization hierarchy endpoints | IMPLEMENTED |
+| OS federation / attachment points | IMPLEMENTED — see [OS_FEDERATION.md](OS_FEDERATION.md) |
 | Remaining domain REST endpoints | DEFERRED |
 | Web application | DEFERRED |
 | Mobile application | DEFERRED |
