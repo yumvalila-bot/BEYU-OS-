@@ -1,12 +1,14 @@
 # BEYU OS — Test Report
 
-Date: 2026-08-11 · Commit: `f2f59af` · Branch: `arena/019ff05a-beyu-os`
+Date: 2026-08-11 · Branch: `arena/019ff05a-beyu-os`
 
-This report covers two kinds of testing. The first is the automated suite that
-runs in CI. The second is adversarial black-box testing against the API running
-as a real HTTP server — forged tokens, injection payloads, malformed bodies,
-concurrent writes and deliberate database tampering. The second kind is what
-found the defect described in section 6.
+This report covers three kinds of testing. The first is the automated suite
+that runs in CI. The second is adversarial black-box testing against the API
+running as a real HTTP server — forged tokens, injection payloads, malformed
+bodies, concurrent writes and deliberate database tampering; it found the
+defect in section 6. The third is exercising the web application against the
+live API, which found two further defects (section 9) that the automated suite
+could not have caught.
 
 ---
 
@@ -14,23 +16,25 @@ found the defect described in section 6.
 
 | | Result |
 |---|---|
-| Automated tests | **209 pass / 0 fail** |
-| Typecheck (11 projects) | **0 errors** |
-| Lint (`eslint .`) | **0 errors**, 20 warnings |
-| Defects found this pass | **1** (fixed in `f2f59af`) |
+| Automated tests | **269 pass / 0 fail** |
+| Typecheck (12 projects) | **0 errors** |
+| Lint (`eslint .`) | **0 errors**, 21 warnings |
+| Defects found this pass | **3** (all fixed) |
 | Adversarial probes run | 40+ against a live server |
+| Web routes exercised | 21/21 against the live API |
 
 Per-project test counts:
 
 | Project | Tests |
 |---|---|
-| `packages/types` | 13 |
+| `packages/types` | 30 |
 | `packages/config` | 14 |
 | `packages/events` | 18 |
 | `packages/auth` | 43 |
 | `packages/security` | 34 |
-| `services/beyu-api` | 87 |
-| **Total** | **209** |
+| `services/beyu-api` | 130 |
+| `apps/beyu-web` | **0 — see §9** |
+| **Total** | **269** |
 
 The warnings are all `@typescript-eslint/no-explicit-any` at framework
 boundaries where the type genuinely is unknown. They are warnings, not errors,
@@ -269,7 +273,63 @@ neither.
 
 ---
 
-## 9. What this testing does not establish
+## 9. Web application, and the defects it exposed
+
+The web app was started against the live API and every route was requested with
+a real signed-in session — obtained by posting the login form, not by forging a
+cookie. All 21 routes returned 200. Anonymous access to an app route redirects
+to `/auth/login`; a signed-in user hitting `/auth/login` is redirected to
+`/dashboard`; session cookies are `HttpOnly` and `SameSite=Strict`.
+
+Two defects surfaced that the automated suite was structurally incapable of
+finding.
+
+### 9.1 A contract that was fiction
+
+`/organization` returned HTTP 500: `Cannot read properties of undefined
+(reading 'split')`. The client's `OrganizationNode` interface declared the
+discriminator as `nodeType`; the API returns `type`.
+
+The important detail is that **`tsc` passed cleanly both before and after the
+fix**. The interface was hand-written, so TypeScript was checking the code
+against an assertion that was itself wrong. A hand-written wire contract is a
+comment that the compiler happens to read.
+
+Every client contract has since been re-derived from a recorded response of the
+endpoint it describes. The durable fix is a generated client — the API already
+publishes OpenAPI at `/api/docs` — which is recorded as follow-up work rather
+than claimed as done.
+
+### 9.2 "Most recent activity" was showing the oldest
+
+The dashboard and audit screens both label their table as the most recent
+entries. `GET /audit` returns the *oldest* N, because `AuditRepository.list()`
+orders ascending so chain verification can walk it forwards. The audit page
+compensated with a client-side descending sort — over a page that was already
+the wrong slice, which made the bug invisible on a short log and wrong on a
+long one.
+
+`AuditRepository.listLatest()` and an `order=desc` query parameter were added,
+and both screens now request it. `test/audit-read.e2e.test.ts` pins both
+orderings, including that `order=desc` really returns the tail of the chain
+rather than a sorted arbitrary page.
+
+Note the shape of this one: no component was broken. The repository was
+correct, the sort was correct, the label was correct in isolation. The system
+lied anyway.
+
+### 9.3 Framing
+
+Security headers were set in `next.config.mjs`, which Next evaluates at build
+time and bakes into the route manifest — so `X-Frame-Options` could not be
+changed for a deployment without a rebuild. Framing policy moved to
+`src/middleware.ts`, which reads the environment per request. It denies framing
+by default and is opt-in through `BEYU_ALLOW_EMBEDDING`; both states were
+verified against a running server.
+
+---
+
+## 10. What this testing does not establish
 
 Stated plainly, because a test report that only lists passes is not useful.
 
@@ -285,9 +345,13 @@ Stated plainly, because a test report that only lists passes is not useful.
 - **Redis, Kafka and S3 are in-process or mock adapters in local development.**
   The event bus has a working in-memory implementation; the Kafka bus is
   STUBBED and labelled as such. No test here exercises a real broker.
-- **Only implemented domains were tested.** Most domain REST endpoints, the web
-  application, the mobile application and the Noelia/HIVE services are
-  DEFERRED. Testing cannot say anything about code that does not exist. See
+- **The web application has no automated tests at all.** Every claim about it
+  in section 9 comes from manually driving a running instance. There is no
+  regression protection: the next change to a page could reintroduce either
+  defect below and nothing would fail.
+- **Only implemented domains were tested.** Most domain REST endpoints, the
+  mobile application and the Noelia/HIVE services are DEFERRED. Testing cannot
+  say anything about code that does not exist. See
   [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md).
 - **RLS was verified through the application's session handling**, which sets
   the tenant per transaction. A dedicated test connecting as `beyu_app` with a
@@ -296,10 +360,10 @@ Stated plainly, because a test report that only lists passes is not useful.
 
 ---
 
-## 10. Lessons carried forward
+## 11. Lessons carried forward
 
 Most failures during development were faulty assumptions in the tests, not
-defects in the product. But four were genuine, and the pattern in all four is
+defects in the product. But several were genuine, and the pattern is
 the same: they lived in the seam between two components that were each
 individually correct and individually tested. The audit hash was correct. The
 canonical JSON serializer was correct. The database column was correct. The
@@ -308,3 +372,9 @@ defect was in the round trip.
 The practical consequence is that invariants are worth testing end to end —
 write it, read it back, verify it — rather than only at the unit boundary where
 both sides can be right and the system still wrong.
+
+The web defects extend the same lesson across a process boundary. A type
+annotation describing another service's response is not verification, and a
+correct query plus a correct sort plus a correct label can still add up to a
+screen that misinforms an auditor. Both were found by running the thing and
+reading the output, which remains the cheapest test that exists.

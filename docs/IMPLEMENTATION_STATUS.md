@@ -41,7 +41,7 @@ planning against it should read the DEFERRED section carefully.
 | Organization hierarchy endpoints | IMPLEMENTED |
 | OS federation / attachment points | IMPLEMENTED — see [OS_FEDERATION.md](OS_FEDERATION.md) |
 | Remaining domain REST endpoints | DEFERRED |
-| Web application | DEFERRED |
+| Web application | PARTIALLY IMPLEMENTED |
 | Mobile application | DEFERRED |
 | Noelia / HIVE services | DEFERRED |
 | Deployment infrastructure | PARTIALLY IMPLEMENTED |
@@ -259,13 +259,60 @@ to `DISSOLVED` rather than removed. The database enforces this with
 
 ---
 
-## 6. Not built
+## 6. Web application — PARTIALLY IMPLEMENTED
 
-### Web application — DEFERRED
-`apps/beyu-web` is an empty directory. None of the specified routes exist. The
-dark navy and gold theme is not implemented. **No logo has been created**: the
-specification requires the owner's canonical logo, and inventing one would be
-wrong.
+`apps/beyu-web` is a Next.js 14 App Router application in TypeScript with
+Tailwind. All twenty specified routes exist and render, plus `/auth/login`.
+
+### What is real
+
+| Route | Status | Data source |
+| --- | --- | --- |
+| `/auth/login` | IMPLEMENTED | `POST /auth/login`; sets the session |
+| `/dashboard` | IMPLEMENTED | organizations, OS registry, audit tail, chain verification |
+| `/organization` | IMPLEMENTED | `GET /organizations` — real hierarchy |
+| `/integrations` | IMPLEMENTED | `GET /os-registry` — real attachment and lifecycle state |
+| `/audit` | IMPLEMENTED | `GET /audit?order=desc`, `GET /audit/verify` |
+| `/settings` | IMPLEMENTED | `GET /auth/me` — the live security context |
+
+### What is not
+
+| Route | Status |
+| --- | --- |
+| `/ownership` `/governance` `/countries` `/sectors` `/tenants` `/strategy` `/risks` `/compliance` `/capital` `/waterfall` `/documents` `/workflows` `/reports` `/notifications` `/noelia` | DEFERRED |
+
+These fifteen routes render a "not built" panel naming the API endpoint each
+one is waiting on. **They deliberately show no mock data.** A screen full of
+plausible invented ownership percentages or risk scores is worse than an empty
+one: it invites decisions. The backend endpoints they need do not exist yet
+(see §5), which is the real constraint — the UI is not the bottleneck.
+
+### Design decisions
+
+- **The browser never holds a token and never calls the API host.** Every page
+  is a server component that calls the API from the Next server, reading the
+  access token from an httpOnly, sameSite=strict cookie (`Secure` outside
+  development). There is no `/api/v1` rewrite: a plain rewrite would forward
+  requests unauthenticated, and the alternative leaks the token to client
+  JavaScript.
+- **Panels degrade independently.** `tryApi` returns a discriminated result
+  rather than throwing, so one failing endpoint renders one error panel instead
+  of blanking the page.
+- **Framing is denied by default** and opt-in via `BEYU_ALLOW_EMBEDDING`, set in
+  `src/middleware.ts` rather than `next.config.mjs` so an operator can change it
+  without a rebuild.
+- Client components are limited to the shell, theme toggle, sidebar and login
+  form. Everything else is server-rendered.
+
+### Branding — PARTIALLY IMPLEMENTED
+The dark navy and gold theme is implemented, with light and dark modes.
+**No logo has been created**: the specification requires the owner's canonical
+logo, and inventing one would be wrong. The header currently shows a lettermark
+placeholder that is meant to be replaced by the supplied asset.
+
+---
+
+## 7. Not built
 
 ### Mobile application — DEFERRED
 `flutter/beyu` is an empty directory. When built it must be genuinely adaptive
@@ -300,31 +347,51 @@ not been run.
 
 ---
 
-## 7. Verification
+## 8. Verification
 
 | Suite | Tests |
 | --- | --- |
-| `@beyu/types` | 13 |
+| `@beyu/types` | 30 |
 | `@beyu/auth` | 43 |
-| `@beyu/security` | 32 |
+| `@beyu/security` | 34 |
 | `@beyu/config` | 14 |
 | `@beyu/events` | 18 |
-| `@beyu/api` | 87 |
-| **Total** | **207 passing** |
+| `@beyu/api` | 130 |
+| **Total** | **269 passing** |
 
-Typecheck passes across all 11 projects. Lint reports zero errors.
+Typecheck passes across all 12 projects. Lint reports zero errors (21 warnings).
+
+The web application has no automated tests. It was verified by running it
+against the live API and walking every route with a real signed-in session;
+that is weaker than a test suite and is the most significant gap in this
+verification. Two defects it caught are described below.
 
 Tests are aimed at invariants rather than implementation details: that
 tampering breaks the chain, that a role cannot escape its tenant, that a
 waterfall conserves its inflow, that no AI mutation is ever auto-approved.
 
-Four test failures during development turned out to be faulty assumptions in
-the tests. Four were genuine product defects, all fixed: the audit-mutability
-privilege escalation, an unreachable hierarchy guard that hid the
-sister-organization explanation, a data directory that was not created
-recursively so a fresh clone could not start, and an audit hash that treated an
+Most test failures during development turned out to be faulty assumptions in
+the tests. Several were genuine product defects, all fixed: the
+audit-mutability privilege escalation, an unreachable hierarchy guard that hid
+the sister-organization explanation, a data directory that was not created
+recursively so a fresh clone could not start, an audit hash that treated an
 omitted nullable field differently from an explicit null and so reported
-untouched records as tampered.
+untouched records as tampered, and an audit `reason` that was stored but not
+hashed, so it could be rewritten without breaking the chain.
+
+Running the web application against the live API found two more that no test
+had caught, both instructive:
+
+- The client declared the organization node's discriminator as `nodeType` while
+  the API returns `type`. **Typecheck passed before and after the fix** — the
+  hand-written interface was simply fiction, and TypeScript cannot check a
+  claim about a wire format. Every client contract has since been re-derived
+  from a recorded response.
+- `GET /audit` returns the *oldest* N records, because verification walks the
+  chain forwards. A screen labelled "most recent activity" was therefore
+  showing the oldest, and a client-side sort over the wrong page made it look
+  deliberate. The endpoint now takes `order=desc`, covered by tests in
+  `test/audit-read.e2e.test.ts`.
 
 Beyond the automated suite, the API was exercised as a running HTTP server
 against forged tokens, injection payloads, malformed bodies and concurrent
@@ -333,17 +400,24 @@ writes. The results are recorded in
 
 ---
 
-## 8. Honest assessment
+## 9. Honest assessment
 
 **What can be relied on.** The data model and its invariants, the authorization
 engine, the audit chain and the waterfall engine are the parts that would be
 most expensive to get wrong later, and they are built, tested and — for the
 database invariants and the audit chain — proven against a live PostgreSQL.
 
-**What cannot.** There is no usable application yet. Without authentication
-endpoints and a frontend, nobody can log in. The next milestone should be
-authentication, then the organization and ownership endpoints, then the web
-shell.
+**What cannot.** Most of the product surface. An operator can sign in and
+inspect the organization hierarchy, the attached-OS registry and the audit
+trail — that is six routes out of twenty-one. Fifteen routes are placeholders
+because the endpoints behind them do not exist: ownership, governance,
+strategy, risk, compliance, capital, waterfall, documents, workflow,
+notifications, reporting and Noelia are schema, contracts and — for the
+waterfall — a tested engine, with no HTTP surface. The next milestone is those
+endpoints, in roughly that order, followed by the screens that consume them.
+
+The web application also has no automated tests, which is why the two defects
+above reached a running app before anyone noticed them.
 
 **What is not real.** The Kafka driver, Redis, S3 and every external
 integration. They are labelled STUBBED and fail loudly. Nothing in this
