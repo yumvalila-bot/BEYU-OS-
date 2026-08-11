@@ -108,6 +108,13 @@ what exists.
   rows. The self-inclusive form is now canonical, migration 0007 recomputes
   every existing row from the parent links, and a CHECK constraint keeps future
   writes consistent.
+- The audit hash treated an omitted nullable field differently from an explicit
+  `null`, because canonical JSON drops undefined keys but keeps null ones. Every
+  such field is stored as SQL NULL and read back as `null`, so verification
+  recomputed a different hash and reported untouched records as tampered — a
+  false accusation of tampering on any entry appended without its optional
+  fields. Undefined is now collapsed to null inside the hash function itself, so
+  no caller can reintroduce the divergence.
 
 ### Known limitations
 

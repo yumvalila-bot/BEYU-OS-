@@ -294,3 +294,44 @@ describe('JWT', () => {
     }
   });
 });
+
+describe('audit hash — undefined and null must not diverge', () => {
+  // Regression: omitting a nullable field hashed it as absent, but the
+  // database stored SQL NULL. Verification then recomputed a different hash
+  // and reported an untouched record as tampered.
+  const base = {
+    sequence: 1,
+    actorType: 'USER',
+    action: 'CREATE',
+    resourceType: 'organization',
+    outcome: 'SUCCESS',
+    occurredAt: '2026-08-11T00:00:00.000Z',
+    previousHash: AUDIT_GENESIS_HASH,
+  };
+
+  it('hashes an omitted nullable field the same as an explicit null', () => {
+    const omitted = computeAuditHash({ ...base } as never);
+    const explicit = computeAuditHash({
+      ...base,
+      actorUserId: null,
+      tenantId: null,
+      organizationId: null,
+      osId: null,
+      resourceId: null,
+      previousState: null,
+      newState: null,
+    } as never);
+    assert.equal(
+      omitted,
+      explicit,
+      'An omitted nullable field and an explicit null must hash identically, ' +
+        'because both are stored as SQL NULL and read back as null.',
+    );
+  });
+
+  it('still distinguishes a real value from null', () => {
+    const withActor = computeAuditHash({ ...base, actorUserId: 'abc' } as never);
+    const withoutActor = computeAuditHash({ ...base, actorUserId: null } as never);
+    assert.notEqual(withActor, withoutActor);
+  });
+});

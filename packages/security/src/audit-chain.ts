@@ -39,23 +39,39 @@ export interface AuditHashInput {
   previousHash: string | null;
 }
 
+/**
+ * Normalizes `undefined` to `null` for hashing.
+ *
+ * `canonicalJson` drops undefined keys but keeps null ones, so the two hash
+ * differently. Every field below is nullable and lands in a nullable column,
+ * where the driver writes `undefined` as SQL NULL. Hashing an omitted field as
+ * "absent" and then reading it back as `null` would make the record verify as
+ * TAMPERED even though nobody touched it — a false accusation of tampering,
+ * which is as damaging as missing a real one. Collapsing the distinction at
+ * the point of hashing keeps write and read symmetric no matter which of the
+ * two a caller supplies.
+ */
+function nullish<T>(value: T | null | undefined): T | null {
+  return value ?? null;
+}
+
 /** Computes the SHA-256 chain hash for an audit record. */
 export function computeAuditHash(input: AuditHashInput): string {
   const canonical = canonicalJson({
     sequence: input.sequence,
-    actorUserId: input.actorUserId,
+    actorUserId: nullish(input.actorUserId),
     actorType: input.actorType,
-    tenantId: input.tenantId,
-    organizationId: input.organizationId,
-    osId: input.osId,
+    tenantId: nullish(input.tenantId),
+    organizationId: nullish(input.organizationId),
+    osId: nullish(input.osId),
     action: input.action,
     resourceType: input.resourceType,
-    resourceId: input.resourceId,
+    resourceId: nullish(input.resourceId),
     outcome: input.outcome,
-    previousState: input.previousState,
-    newState: input.newState,
+    previousState: nullish(input.previousState),
+    newState: nullish(input.newState),
     occurredAt: input.occurredAt,
-    previousHash: input.previousHash,
+    previousHash: nullish(input.previousHash),
   });
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
