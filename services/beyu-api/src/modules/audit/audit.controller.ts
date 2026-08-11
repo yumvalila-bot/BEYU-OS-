@@ -25,15 +25,27 @@ export class AuditController {
   @Get()
   @RequirePermission(ResourceType.Audit, Action.Read)
   @AuditRead()
-  @ApiOperation({ summary: 'Lists audit records in chain order.' })
+  @ApiOperation({
+    summary: 'Lists audit records. Chain order by default, newest first with order=desc.',
+  })
   async list(
     @Query('fromSequence') fromSequence?: string,
     @Query('limit') limit?: string,
+    @Query('order') order?: string,
   ): Promise<{ items: AuditEvent[]; count: number }> {
-    const items = await this.audit.list({
-      fromSequence: fromSequence ? Number(fromSequence) : undefined,
-      limit: limit ? Math.min(Number(limit), 500) : 100,
-    });
+    const resolvedLimit = limit ? Math.min(Number(limit), 500) : 100;
+
+    // Verification reads the chain forwards; a human reviewing the trail wants
+    // the newest entries. `fromSequence` is a forward-walk concept, so it is
+    // only honoured in ascending order.
+    const items =
+      order === 'desc'
+        ? await this.audit.listLatest({ limit: resolvedLimit })
+        : await this.audit.list({
+            fromSequence: fromSequence ? Number(fromSequence) : undefined,
+            limit: resolvedLimit,
+          });
+
     return { items, count: items.length };
   }
 
