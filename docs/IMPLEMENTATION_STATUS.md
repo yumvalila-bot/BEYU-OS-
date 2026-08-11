@@ -20,7 +20,7 @@ working, what is partial and what has not been built.
 The **foundation is production-grade and proven**: the data model, the security
 model, the authorization engine, the audit chain, the waterfall calculation
 engine and the API skeleton. Authentication and the organization domain are
-now built end to end. **207 automated tests pass.**
+now built end to end. **209 automated tests pass.**
 
 The **domain API surface and both frontends are not built.** BEYU OS v1.0 as
 delivered here is a backend foundation, not a usable end-user product. Anyone
@@ -316,10 +316,17 @@ tampering breaks the chain, that a role cannot escape its tenant, that a
 waterfall conserves its inflow, that no AI mutation is ever auto-approved.
 
 Four test failures during development turned out to be faulty assumptions in
-the tests. Three were genuine product defects, all fixed: the audit-mutability
+the tests. Four were genuine product defects, all fixed: the audit-mutability
 privilege escalation, an unreachable hierarchy guard that hid the
-sister-organization explanation, and a data directory that was not created
-recursively so a fresh clone could not start.
+sister-organization explanation, a data directory that was not created
+recursively so a fresh clone could not start, and an audit hash that treated an
+omitted nullable field differently from an explicit null and so reported
+untouched records as tampered.
+
+Beyond the automated suite, the API was exercised as a running HTTP server
+against forged tokens, injection payloads, malformed bodies and concurrent
+writes. The results are recorded in
+[`docs/TEST_REPORT.md`](TEST_REPORT.md).
 
 ---
 
