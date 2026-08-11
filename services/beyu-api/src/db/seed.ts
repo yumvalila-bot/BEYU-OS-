@@ -21,6 +21,8 @@
  * Seeding is idempotent: re-running it will not duplicate rows.
  */
 
+import { Role } from '@beyu/types';
+
 import type { Database } from './driver';
 
 /**
@@ -36,22 +38,30 @@ const SEED_JURISDICTION = process.env.SEED_JURISDICTION ?? 'ZZ';
 
 /** Roles mirror ROLE_PERMISSIONS in @beyu/auth. The policy engine is the
  *  source of truth; these rows exist so the UI can list and assign them. */
-const ROLES: Array<{ code: string; name: string; description: string }> = [
-  { code: 'TrustAdministrator', name: 'Trust Administrator', description: 'Full trust-level administration. Highest privilege in BEYU OS.' },
-  { code: 'Trustee', name: 'Trustee', description: 'Fiduciary oversight of the BEYU FAMILY TRUST.' },
-  { code: 'GroupExecutive', name: 'Group Executive', description: 'Executive across the holding structure.' },
-  { code: 'HoldingCompanyDirector', name: 'Holding Company Director', description: 'Director of BEYU HOLDING COMPANY.' },
-  { code: 'CountryDirector', name: 'Country Director', description: 'Accountable for a country holding company.' },
-  { code: 'SectorLead', name: 'Sector Lead', description: 'Accountable for a sector LLC relationship.' },
-  { code: 'FinanceOfficer', name: 'Finance Officer', description: 'Capital and waterfall preparation. Cannot self-approve.' },
-  { code: 'RiskOfficer', name: 'Risk Officer', description: 'Enterprise risk management.' },
-  { code: 'ComplianceOfficer', name: 'Compliance Officer', description: 'Regulatory compliance oversight.' },
-  { code: 'GovernanceSecretary', name: 'Governance Secretary', description: 'Board and committee administration.' },
-  { code: 'StrategyAnalyst', name: 'Strategy Analyst', description: 'Strategic planning and performance analysis.' },
-  { code: 'Auditor', name: 'Auditor', description: 'Read-only assurance across the trust. Cannot mutate.' },
-  { code: 'TenantAdministrator', name: 'Tenant Administrator', description: 'Administers a single tenant.' },
-  { code: 'TenantUser', name: 'Tenant User', description: 'Standard tenant-scoped user.' },
-  { code: 'ServiceAccount', name: 'Service Account', description: 'Machine principal for integrations.' },
+/**
+ * Roles.
+ *
+ * `code` is taken from the Role enum rather than written out by hand: the
+ * database must store the canonical wire value (TRUST_ADMINISTRATOR), not the
+ * TypeScript key (TrustAdministrator). Writing these literally once produced
+ * exactly that drift, and every role lookup silently matched nothing.
+ */
+const ROLES: Array<{ code: Role; name: string; description: string }> = [
+  { code: Role.TrustAdministrator, name: 'Trust Administrator', description: 'Full trust-level administration. Highest privilege in BEYU OS.' },
+  { code: Role.Trustee, name: 'Trustee', description: 'Fiduciary oversight of the BEYU FAMILY TRUST.' },
+  { code: Role.GroupExecutive, name: 'Group Executive', description: 'Executive across the holding structure.' },
+  { code: Role.BoardDirector, name: 'Board Director', description: 'Board member within the holding structure.' },
+  { code: Role.CountryDirector, name: 'Country Director', description: 'Accountable for a country holding company.' },
+  { code: Role.SectorDirector, name: 'Sector Director', description: 'Accountable for a sector LLC relationship. BEYU OS stops at that boundary.' },
+  { code: Role.CapitalController, name: 'Capital Controller', description: 'Capital and waterfall preparation and approval.' },
+  { code: Role.RiskOfficer, name: 'Risk Officer', description: 'Enterprise risk management.' },
+  { code: Role.ComplianceOfficer, name: 'Compliance Officer', description: 'Regulatory compliance oversight.' },
+  { code: Role.GovernanceSecretary, name: 'Governance Secretary', description: 'Board and committee administration.' },
+  { code: Role.ReadOnly, name: 'Read Only', description: 'Read-only access within an explicitly granted scope.' },
+  { code: Role.Auditor, name: 'Auditor', description: 'Read-only assurance across the trust. Cannot mutate.' },
+  { code: Role.TenantAdministrator, name: 'Tenant Administrator', description: 'Administers a single tenant.' },
+  { code: Role.TenantUser, name: 'Tenant User', description: 'Standard tenant-scoped user.' },
+  { code: Role.ServiceAccount, name: 'Service Account', description: 'Machine principal for integrations.' },
 ];
 
 /** Sectors are configuration. BEYU OS stops at the Sector LLC boundary; these

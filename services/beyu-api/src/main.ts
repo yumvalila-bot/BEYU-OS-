@@ -8,7 +8,7 @@
 
 import 'reflect-metadata';
 
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
@@ -30,14 +30,8 @@ export async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api/v1');
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true, // strip properties the DTO does not declare
-      forbidNonWhitelisted: true, // and reject requests that send them
-      transform: true,
-      transformOptions: { enableImplicitConversion: false },
-    }),
-  );
+  // Validation, guards, interceptors and the error filter are registered in
+  // AppModule so every app built from it behaves identically.
 
   app.enableCors({
     origin: config.security.corsOrigins,

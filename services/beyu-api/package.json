@@ -7,16 +7,17 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/main.ts",
+    "dev": "node --watch --require @swc-node/register src/main.ts",
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
-    "test": "TSX_TSCONFIG_PATH=test/tsconfig.json node --test --import tsx \"test/**/*.test.ts\"",
-    "db:migrate": "tsx src/db/cli.ts migrate",
-    "db:seed": "tsx src/db/cli.ts seed",
-    "db:reset": "tsx src/db/cli.ts reset",
-    "db:verify-audit": "tsx src/db/cli.ts verify-audit",
-    "clean": "rm -rf dist .turbo"
+    "test": "node --test --require @swc-node/register \"test/**/*.test.ts\"",
+    "db:migrate": "node --require @swc-node/register src/db/cli.ts migrate",
+    "db:seed": "node --require @swc-node/register src/db/cli.ts seed",
+    "db:reset": "node --require @swc-node/register src/db/cli.ts reset",
+    "db:verify-audit": "node --require @swc-node/register src/db/cli.ts verify-audit",
+    "clean": "rm -rf dist .turbo",
+    "create-admin": "node --require @swc-node/register src/db/cli.ts create-admin"
   },
   "dependencies": {
     "@beyu/auth": "workspace:*",
@@ -39,9 +40,10 @@
   },
   "devDependencies": {
     "@nestjs/testing": "^10.4.15",
+    "@swc-node/register": "^1.10.9",
+    "@swc/core": "^1.10.1",
     "@types/node": "^22.10.2",
     "@types/pg": "^8.11.10",
-    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }

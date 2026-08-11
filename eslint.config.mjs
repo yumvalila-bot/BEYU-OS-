@@ -126,6 +126,20 @@ export default tseslint.config(
     },
   },
 
+  // Decorator metadata is erased by `import type`.
+  //
+  // NestJS discovers a controller's DTO class from the `design:paramtypes`
+  // metadata emitted for `@Body() body: LoginDto`. If that import is rewritten
+  // to a type-only import the class disappears from the emitted JavaScript,
+  // the metadata degrades to `Object`, and the global ValidationPipe accepts
+  // every request body without checking it — a silent, security-relevant
+  // failure that typechecks cleanly. Autofixing imports in these files is
+  // therefore forbidden.
+  {
+    files: ['services/**/*.controller.ts', 'services/**/*.dto.ts'],
+    rules: { '@typescript-eslint/consistent-type-imports': 'off' },
+  },
+
   // The forbidden name must appear literally in exactly three places: the
   // validator that rejects it, the tests proving it is rejected, and this
   // configuration file. Everywhere else it is an error.
