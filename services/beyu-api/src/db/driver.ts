@@ -15,6 +15,8 @@
  * the `Database` interface below.
  */
 
+import { mkdir } from 'node:fs/promises';
+
 import { loadConfig } from '@beyu/config';
 
 export interface QueryResult<T = Record<string, unknown>> {
@@ -90,6 +92,9 @@ class PgliteDatabase implements Database {
   private async init(): Promise<void> {
     if (!this.ready) {
       this.ready = (async () => {
+        // PGlite does not create intermediate directories, so a fresh clone
+        // with a nested PGLITE_DATA_DIR would fail with ENOENT on first run.
+        await mkdir(this.dataDir, { recursive: true });
         const mod: any = await import('@electric-sql/pglite');
         this.db = new mod.PGlite(this.dataDir);
         await this.db.waitReady;
