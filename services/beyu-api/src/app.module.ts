@@ -27,11 +27,12 @@ import { HttpExceptionFilter } from './core/http-exception.filter';
 import { AuditController } from './modules/audit/audit.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
+import { NoeliaModule } from './modules/noelia/noelia.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { OsRegistryModule } from './modules/os-registry/os-registry.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule, OrganizationsModule, OsRegistryModule],
+  imports: [DatabaseModule, AuthModule, OrganizationsModule, OsRegistryModule, NoeliaModule],
   controllers: [HealthController, AuditController],
   providers: [
     // Order matters: authentication resolves the principal, then

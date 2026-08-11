@@ -60,10 +60,12 @@ rule and by a CI guardrail.
 
 ## Implementation status
 
-This release is a **backend foundation, not a usable end-user product.** The
-data model, security model, authorization engine, audit chain and waterfall
-engine are built and tested. The domain API surface, authentication endpoints
-and both frontends are not.
+This release is a **backend foundation with a partial product surface over it.**
+The data model, security model, authorization engine, audit chain, waterfall
+engine, authentication, the organization and OS-registry domains and Noelia's
+governance layer are built and tested. Most other domain endpoints are not, and
+the screens that would consume them are placeholders that show nothing rather
+than mock data.
 
 **Read [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) before
 planning against this repository.** It labels every feature IMPLEMENTED,
@@ -71,10 +73,11 @@ PARTIALLY IMPLEMENTED, STUBBED or DEFERRED, and does not overstate anything.
 
 | | |
 | --- | --- |
-| **Solid** | Schema and database-enforced invariants · authorization engine · audit chain · waterfall engine · AI governance · API runtime |
-| **Missing** | Login endpoints · domain REST handlers · web app · mobile app · Noelia and HIVE services |
-| **Not real** | Kafka driver, Redis, S3 and external connectors — all STUBBED and failing loudly |
-| **Verified** | 165 tests passing · typecheck clean across 11 projects · zero lint errors |
+| **Solid** | Schema and database-enforced invariants · authorization engine · audit chain · waterfall engine · AI governance · API runtime · auth · organization · OS registry · Noelia governance |
+| **Partial** | Two front ends covering 6–7 routes each; the remainder are honest placeholders |
+| **Missing** | Most domain REST handlers · mobile app · HIVE service |
+| **Not real** | Noelia's model provider (deterministic stub, retrieval not analysis) · Kafka driver, Redis, S3 and external connectors — all STUBBED and failing loudly |
+| **Verified** | 292 tests passing · typecheck clean across 12 projects · zero lint errors |
 
 ## Getting started
 
@@ -99,6 +102,12 @@ The API listens on `http://localhost:4000`, with OpenAPI at `/api/docs`.
 curl http://localhost:4000/api/v1/health
 ```
 
+The operator console needs no build and no install:
+
+```bash
+BEYU_API_ORIGIN=http://127.0.0.1:4000 PORT=8080 node apps/beyu-console/server.mjs
+```
+
 Useful commands:
 
 ```bash
@@ -112,8 +121,9 @@ make help        # everything else
 | Path | Contents |
 | --- | --- |
 | `services/beyu-api` | NestJS control-plane API — the system of record |
-| `services/noelia`, `services/hive` | AI services *(deferred)* |
-| `apps/beyu-web` | Next.js web application *(deferred)* |
+| `services/hive` | HIVE AI service *(deferred)* |
+| `apps/beyu-web` | Next.js web application *(partial — 6 live routes)* |
+| `apps/beyu-console` | Dependency-free operator console *(partial — 7 live routes, incl. Noelia)* |
 | `flutter/beyu` | Adaptive Flutter mobile application *(deferred)* |
 | `packages/types` | Canonical shared contracts |
 | `packages/auth` | Authorization policy engine and AI governance |

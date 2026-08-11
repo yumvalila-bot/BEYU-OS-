@@ -18,6 +18,7 @@ function clearBeyuEnv(): void {
       key.startsWith('BEYU_') ||
       key.startsWith('S3_') ||
       key.startsWith('KAFKA_') ||
+      key.startsWith('AI_') ||
       ['PORT', 'DATABASE_DRIVER', 'DATABASE_URL', 'PGLITE_DATA_DIR', 'REDIS_URL', 'JWT_SECRET',
         'JWT_ISSUER', 'ACCESS_TOKEN_TTL', 'REFRESH_TOKEN_TTL', 'STORAGE_DRIVER',
         'STORAGE_LOCAL_PATH', 'EVENT_DRIVER', 'LOG_LEVEL', 'METRICS_ENABLED', 'CORS_ORIGINS',
@@ -74,6 +75,54 @@ describe('production safety', () => {
     resetConfigCache();
     delete process.env.BEYU_ENV;
     assert.equal(loadConfig().observability.logLevel, 'debug');
+  });
+
+  it('leaves AI disabled in production rather than serving stub answers', () => {
+    process.env.BEYU_ENV = 'production';
+    process.env.JWT_SECRET = 'x'.repeat(40);
+
+    const config = loadConfig();
+    assert.equal(config.ai.driver, 'stub');
+    assert.equal(
+      config.ai.enabled,
+      false,
+      'a production deployment that has not configured a model must not run the stub',
+    );
+  });
+
+  it('refuses to start if an operator explicitly enables the stub in production', () => {
+    process.env.BEYU_ENV = 'production';
+    process.env.JWT_SECRET = 'x'.repeat(40);
+    process.env.AI_ENABLED = 'true';
+
+    // Silently ignoring this would leave canned text being read as governance
+    // analysis, with nothing on screen to say so.
+    assert.throws(() => loadConfig(), /stubbed intelligence/);
+  });
+
+  it('enables AI in production once a real provider is configured', () => {
+    process.env.BEYU_ENV = 'production';
+    process.env.JWT_SECRET = 'x'.repeat(40);
+    process.env.AI_DRIVER = 'openai-compatible';
+
+    const config = loadConfig();
+    assert.equal(config.ai.enabled, true);
+    assert.equal(config.ai.driver, 'openai-compatible');
+  });
+
+  it('never reads an API key from configuration, only a reference to one', () => {
+    process.env.AI_API_KEY_REF = 'BEYU_AI_KEY';
+    const config = loadConfig();
+
+    // The value is the *name* of the variable holding the key, not the key.
+    assert.equal(config.ai.apiKeyRef, 'BEYU_AI_KEY');
+
+    // There is no field on the AI config that could hold a credential. The
+    // key is resolved at the call site from the secret store.
+    const credentialFields = Object.keys(config.ai).filter((k) =>
+      /^(apiKey|secret|password|credential)$/i.test(k),
+    );
+    assert.deepEqual(credentialFields, []);
   });
 });
 

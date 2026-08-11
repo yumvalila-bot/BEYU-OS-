@@ -2,13 +2,14 @@
 
 Date: 2026-08-11 · Branch: `arena/019ff05a-beyu-os`
 
-This report covers three kinds of testing. The first is the automated suite
+This report covers four kinds of testing. The first is the automated suite
 that runs in CI. The second is adversarial black-box testing against the API
 running as a real HTTP server — forged tokens, injection payloads, malformed
 bodies, concurrent writes and deliberate database tampering; it found the
 defect in section 6. The third is exercising the web application against the
 live API, which found two further defects (section 9) that the automated suite
-could not have caught.
+could not have caught. The fourth is the Noelia governance layer and the static
+operator console (sections 12 and 13), which together found four more.
 
 ---
 
@@ -16,25 +17,27 @@ could not have caught.
 
 | | Result |
 |---|---|
-| Automated tests | **269 pass / 0 fail** |
+| Automated tests | **292 pass / 0 fail** |
 | Typecheck (12 projects) | **0 errors** |
 | Lint (`eslint .`) | **0 errors**, 21 warnings |
-| Defects found this pass | **3** (all fixed) |
+| Defects found this pass | **7** (all fixed) |
 | Adversarial probes run | 40+ against a live server |
 | Web routes exercised | 21/21 against the live API |
+| Console routes exercised | 22/22 against the live API |
 
 Per-project test counts:
 
 | Project | Tests |
 |---|---|
 | `packages/types` | 30 |
-| `packages/config` | 14 |
+| `packages/config` | 18 |
 | `packages/events` | 18 |
 | `packages/auth` | 43 |
 | `packages/security` | 34 |
-| `services/beyu-api` | 130 |
+| `services/beyu-api` | 149 |
 | `apps/beyu-web` | **0 — see §9** |
-| **Total** | **269** |
+| `apps/beyu-console` | **0 — see §13** |
+| **Total** | **292** |
 
 The warnings are all `@typescript-eslint/no-explicit-any` at framework
 boundaries where the type genuinely is unknown. They are warnings, not errors,
@@ -345,13 +348,20 @@ Stated plainly, because a test report that only lists passes is not useful.
 - **Redis, Kafka and S3 are in-process or mock adapters in local development.**
   The event bus has a working in-memory implementation; the Kafka bus is
   STUBBED and labelled as such. No test here exercises a real broker.
-- **The web application has no automated tests at all.** Every claim about it
-  in section 9 comes from manually driving a running instance. There is no
-  regression protection: the next change to a page could reintroduce either
-  defect below and nothing would fail.
+- **Neither front end has automated tests.** Every claim about the web app
+  (§9) and the console (§13) comes from driving a running instance. There is no
+  regression protection: the next change to a page could reintroduce any of
+  those defects and nothing would fail.
+- **Noelia's model is a deterministic stub, so nothing here tests a model.**
+  Section 12 tests the *governance* around the model — the permission checks,
+  the recommendation/execution split, the audit of refusals. It says nothing
+  about answer quality, prompt injection through a real LLM, or the behaviour
+  of any hosted provider, because no model is called. The stub was chosen
+  precisely so the governance could be tested deterministically; the day a real
+  provider is wired in, section 12 stops being sufficient.
 - **Only implemented domains were tested.** Most domain REST endpoints, the
-  mobile application and the Noelia/HIVE services are DEFERRED. Testing cannot
-  say anything about code that does not exist. See
+  mobile application and the HIVE service are DEFERRED. Testing cannot say
+  anything about code that does not exist. See
   [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md).
 - **RLS was verified through the application's session handling**, which sets
   the tenant per transaction. A dedicated test connecting as `beyu_app` with a
@@ -378,3 +388,134 @@ annotation describing another service's response is not verification, and a
 correct query plus a correct sort plus a correct label can still add up to a
 screen that misinforms an auditor. Both were found by running the thing and
 reading the output, which remains the cheapest test that exists.
+
+---
+
+## 12. Noelia AI — governance testing
+
+19 e2e tests in `services/beyu-api/test/noelia.e2e.test.ts`, all against the
+real schema with the real constraints and triggers attached.
+
+The thing under test is not the model. It is the claim that an AI agent inside
+this system cannot act, cannot see what its principal cannot see, and cannot
+have its refusals quietly disappear.
+
+### 12.1 What was proven
+
+| Claim | How it was proven |
+|---|---|
+| An AI proposal that would change capital cannot execute | `POST /noelia/recommendations` with a mutating CAPITAL action returns `REQUIRES_HUMAN_APPROVAL`, `downgradedToRecommendation=true`, and persists with `status='PENDING_REVIEW'` |
+| Accepting a recommendation still does not execute it | `review()` with `ACCEPTED` returns `proposedAction` for a human to enact; the audit record carries `newState.executed === false` |
+| Some actions are refused outright | `execute`, and anything touching WATERFALL, return `DENIED` with `recommendation=null` and **no row inserted** |
+| Refusals are not silently dropped | The denial is written to `ai.action_log` and appears in `GET /noelia/action-log` alongside permitted actions |
+| A decision cannot be reopened | Re-reviewing returns 400; a database trigger refuses the update even when the API is bypassed |
+| Approver roles cannot be edited after the fact | `approver_roles` is frozen at proposal time and asserted unchanged after review |
+| Noelia cannot read what you cannot read | Another user's conversation returns **404, not 403** — the distinction matters, because 403 confirms the record exists |
+| Sensitive fields never reach the model | `registration_number` and `legal_name` are excluded by allowlist (`ORG_FIELDS`, `OS_FIELDS`) and asserted absent from every citation |
+| An unsupported question is not answered anyway | Returns `ungrounded=true`, empty citations, and is asserted to contain no `\d%` — no invented figures |
+
+Three database CHECK constraints back the application logic rather than merely
+duplicating it: `ai_permitted_actions_are_reads_only`,
+`ai_acceptance_requires_human`, `ai_never_sector_sensitive`. Each was tested by
+attempting the violating write directly against the database, outside the API.
+
+### 12.2 Defect found: a migration that worked only on empty databases
+
+Migration `0009` normalises `ai.agents.max_classification` to uppercase. It ran
+the `UPDATE` **before** dropping the mixed-case CHECK constraint that `0005`
+had attached. On a fresh database this is invisible, because there are no rows
+to update. On any database with an existing agent row it fails and rolls back
+the migration.
+
+Every migration test in the suite installed from empty, so every one of them
+passed.
+
+The fix reorders the section to drop the old constraint first. The lesson is
+recorded here because it generalises: **a fresh-install migration test does not
+test a migration.** Verification now uses a two-stage upgrade — migrate to
+N‑1, insert representative legacy rows, then apply N.
+
+### 12.3 Defect found: a fail-fast that fired on the default configuration
+
+The first version of the AI configuration threw at startup in production when
+`AI_DRIVER=stub`. Reasonable in intent — do not run a stub in production —
+but `stub` was also the default, so this made *every* production deployment
+crash, including deployments that never touch AI at all. It broke three
+unrelated config tests, which is how it was caught.
+
+The correct shape, now implemented: default the feature **off** in production
+(`AI_ENABLED` defaults to `isProduction ? aiDriver !== 'stub' : true`) and throw
+only when an operator explicitly opts into the stub with `AI_ENABLED=true`. A
+safety check that fires on the default configuration is not a safety check.
+
+---
+
+## 13. Operator console (`apps/beyu-console`)
+
+A dependency-free static front end: one HTML file, one Node server that also
+reverse-proxies `/api/v1`. It was exercised by loading the real `index.html`
+in a DOM, pointing its `fetch` at the running console server, and reading what
+rendered. All 22 routes, the login flow, both Noelia question paths and the
+recommendation review flow were driven this way, with zero console errors.
+
+The verification harness lives in `/tmp` and is deliberately **not** committed:
+it needs a DOM library, and adding a dependency to a package whose entire point
+is having none would be self-defeating. That is a real gap, stated plainly —
+see §10.
+
+### 13.1 Defects found
+
+**Two invented field names.** The dashboard read `verify.checked ?? verify.count`
+and the settings screen passed the boolean `mfaSatisfied` through a status-pill
+helper. The API actually returns `checkedCount`, and the pill helper mapped the
+boolean to nothing. The rendered result was an audit tile reading
+"Intact — entries verified" with the number silently missing, and an MFA row
+reading "ACTIVE" whether or not MFA was satisfied. Both were written from
+memory of the response shape instead of from the response. Both now read the
+live payload; a session-expiry row was added while fixing the second.
+
+This is the same defect class as §9.1 and it recurred despite having been
+written down. Hand-written assumptions about another service's wire format are
+not verified by anything until something reads the real bytes.
+
+**An expired session left the operator in a dead shell.** A 401 on any screen
+was rendered as a failed request and nothing more, so the navigation stayed up
+and every subsequent click failed the same way. On a governance console that is
+worse than an error page: blank panels invite being read as "there is nothing
+here". The API client now clears the token and returns to the sign-in screen on
+any 401 — except from `/auth/login` itself, where a rejected password is an
+answer rather than an expiry and is reported in place.
+
+**The static server published its own source.** `GET /server.mjs` returned the
+server, and `GET /README.md` the README, because the handler served anything
+resolving inside its own directory. Not a credential leak — no secrets live
+there — but free reconnaissance, and the set of files sitting beside the entry
+point grows without anyone re-reading that function. Static serving is now an
+explicit allowlist (`SERVABLE`), which cannot drift as files are added.
+
+### 13.2 Adversarial probes
+
+| Probe | Result |
+|---|---|
+| `GET /../../../etc/passwd` (raw, `--path-as-is`) | 404 — traversal detected before `normalize()` collapses the evidence |
+| `GET /%2e%2e%2f%2e%2e%2fetc%2fpasswd` | 404 — decoded before the check, not after |
+| `GET /server.mjs`, `GET /README.md` | 404 — not on the allowlist |
+| `POST /` | 405 |
+| API call with no token, through the proxy | 401 — the proxy adds no authority of its own |
+| `?limit=9999` through the proxy | 400, with the API's error envelope intact and unrewritten |
+| API payload containing `<img src=x onerror=…>` in every string field | Rendered as text; 0 injected elements; no script ran |
+
+The XSS probe matters most. The console builds HTML with template strings, so
+escaping is a discipline rather than a guarantee from the framework. Every
+interpolated value goes through `esc()`, and the probe confirms it by feeding
+a hostile payload through the actual render path rather than by inspection.
+
+### 13.3 What the console deliberately does not do
+
+It performs **no authorization**. It forwards a token and renders the answer.
+Controls it hides are hidden as a courtesy; the identical request from `curl`
+gets the identical response, which was verified for 403, 401 and 500 by
+injecting each at the transport and confirming the screen states the refusal
+rather than rendering an empty table. It holds **no mock data** — 16 of its 22
+routes have no backend and say so in those words, because on a governance
+console an empty table is a claim that the records were checked and none exist.
