@@ -132,14 +132,49 @@ export function validateHierarchy(
   return { valid: true };
 }
 
-/** Rejects forbidden organization names (spec §86.2). */
+/**
+ * Normalizes a name for comparison against the forbidden list.
+ *
+ * Case, surrounding space and *runs* of internal whitespace are all
+ * insignificant: "BeYu  group" is the same name as "BEYU GROUP" and must be
+ * refused just as firmly. Anything less than this and the rule is trivially
+ * evaded by a stray keystroke.
+ */
+function normalizeOrganizationName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toUpperCase();
+}
+
+/**
+ * Rejects forbidden organization names (spec §86.2).
+ *
+ * A forbidden name is refused whether it is the whole name or appears as a
+ * whole-word phrase inside a longer one, so "BEYU GROUP HOLDINGS" is caught
+ * too. Throws a plain Error: this package is framework-free, so callers at the
+ * HTTP boundary are responsible for translating it into a 400.
+ */
 export function assertOrganizationNameAllowed(name: string): void {
-  const normalized = name.trim().toUpperCase();
-  if (FORBIDDEN_ORGANIZATION_NAMES.includes(normalized)) {
-    throw new Error(
-      `Organization name "${name}" is forbidden. The canonical parent organization is ` +
+  const normalized = normalizeOrganizationName(name);
+  const forbidden = FORBIDDEN_ORGANIZATION_NAMES.find(
+    (candidate) =>
+      normalized === candidate ||
+      new RegExp(`(^|\\s)${candidate.replace(/\s+/g, '\\s+')}(\\s|$)`).test(normalized),
+  );
+  if (forbidden) {
+    throw new ForbiddenOrganizationNameError(name, forbidden);
+  }
+}
+
+/** Thrown by {@link assertOrganizationNameAllowed}. */
+export class ForbiddenOrganizationNameError extends Error {
+  readonly forbiddenName: string;
+
+  constructor(attempted: string, forbiddenName: string) {
+    super(
+      `Organization name "${attempted}" is forbidden. The canonical parent organization is ` +
         `"${CANONICAL_PARENT_ORGANIZATION}".`,
     );
+    this.name = 'ForbiddenOrganizationNameError';
+    this.forbiddenName = forbiddenName;
   }
 }
 

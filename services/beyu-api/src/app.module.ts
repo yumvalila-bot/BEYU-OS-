@@ -27,9 +27,10 @@ import { HttpExceptionFilter } from './core/http-exception.filter';
 import { AuditController } from './modules/audit/audit.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthController } from './modules/health/health.controller';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
 
 @Module({
-  imports: [DatabaseModule, AuthModule],
+  imports: [DatabaseModule, AuthModule, OrganizationsModule],
   controllers: [HealthController, AuditController],
   providers: [
     // Order matters: authentication resolves the principal, then

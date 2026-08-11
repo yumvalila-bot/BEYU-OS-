@@ -114,7 +114,7 @@ jobs:
           # The forbidden name is permitted only in the files whose job is to
           # reject or document it. Anywhere else, something was actually named
           # "BEYU GROUP". Keep this allowlist short and deliberate.
-          allowed='^\./(packages/types/src/organization\.(ts|test\.ts)|services/beyu-api/migrations/000[12]_[a-z_]+\.sql|eslint\.config\.mjs|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|docs/[A-Z_]+\.md|\.github/workflows/ci\.yml)$'
+          allowed='^\./(packages/types/src/organization\.(ts|test\.ts)|services/beyu-api/test/organizations\.e2e\.test\.ts|services/beyu-api/migrations/000[1237]_[a-z_]+\.sql|eslint\.config\.mjs|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|docs/[A-Z_]+\.md|docs/ci/ci\.yml|\.github/workflows/ci\.yml)$'
           violations=0
           while IFS= read -r file; do
             if ! echo "$file" | grep -qE "$allowed"; then

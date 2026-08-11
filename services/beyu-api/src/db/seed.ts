@@ -142,6 +142,10 @@ export async function seed(
 
   // -- Canonical hierarchy skeleton (spec §1) ----------------------------
   // BEYU FAMILY TRUST is the root and is never renamed.
+  // Materialized path convention (shared with OrganizationsRepository):
+  // '/' separated, INCLUDING the node's own id, so a subtree is the indexed
+  // prefix scan `path LIKE '<path>/%'` and the ancestor chain is the path
+  // split on '/'. Migration 0007 recomputes any row that deviates.
   const trust = await insertNode(db, {
     nodeType: 'TRUST',
     name: 'BEYU FAMILY TRUST',
@@ -150,15 +154,17 @@ export async function seed(
     path: '',
     depth: 0,
   });
+  await setPath(db, trust, `/${trust}`);
 
   const holding = await insertNode(db, {
     nodeType: 'HOLDING_COMPANY',
     name: 'BEYU HOLDING COMPANY',
     legalName: 'BEYU HOLDING COMPANY',
     parentId: trust,
-    path: trust,
+    path: '',
     depth: 1,
   });
+  await setPath(db, holding, `/${trust}/${holding}`);
 
   // FOUNDATION is a SISTER of the holding company, directly under the Trust.
   // It is deliberately NOT a child of BEYU HOLDING COMPANY (spec §2, §12).
@@ -167,18 +173,20 @@ export async function seed(
     name: 'BEYU FOUNDATION',
     legalName: 'BEYU FOUNDATION',
     parentId: trust,
-    path: trust,
+    path: '',
     depth: 1,
   });
+  await setPath(db, foundation, `/${trust}/${foundation}`);
 
-  await insertNode(db, {
+  const foundationOs = await insertNode(db, {
     nodeType: 'FOUNDATION_OS',
     name: 'FOUNDATION OS',
     legalName: null,
     parentId: foundation,
-    path: `${trust}/${foundation}`,
+    path: '',
     depth: 2,
   });
+  await setPath(db, foundationOs, `/${trust}/${foundation}/${foundationOs}`);
 
   created.push('canonical hierarchy: Trust, Holding Company, Foundation (sister)');
 
@@ -233,6 +241,14 @@ async function insertNode(
     [node.nodeType, node.name, node.legalName, node.parentId, node.path, node.depth],
   );
   return result.rows[0].id;
+}
+
+/**
+ * Writes the materialized path once the generated id is known. The path
+ * contains the node's own id, so it cannot be supplied to the INSERT itself.
+ */
+async function setPath(db: Database, id: string, path: string): Promise<void> {
+  await db.query('UPDATE organization.org_nodes SET path = $1 WHERE id = $2', [path, id]);
 }
 
 async function insertEntity(

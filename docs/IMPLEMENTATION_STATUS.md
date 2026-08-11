@@ -19,7 +19,8 @@ working, what is partial and what has not been built.
 
 The **foundation is production-grade and proven**: the data model, the security
 model, the authorization engine, the audit chain, the waterfall calculation
-engine and the API skeleton. **165 automated tests pass.**
+engine and the API skeleton. Authentication and the organization domain are
+now built end to end. **207 automated tests pass.**
 
 The **domain API surface and both frontends are not built.** BEYU OS v1.0 as
 delivered here is a backend foundation, not a usable end-user product. Anyone
@@ -34,8 +35,9 @@ planning against it should read the DEFERRED section carefully.
 | Waterfall calculation engine | IMPLEMENTED |
 | AI governance boundary | IMPLEMENTED |
 | API runtime and cross-cutting concerns | IMPLEMENTED |
-| Domain REST endpoints | PARTIALLY IMPLEMENTED |
-| Authentication endpoints and sessions | DEFERRED |
+| Authentication endpoints and sessions | IMPLEMENTED |
+| Organization hierarchy endpoints | IMPLEMENTED |
+| Remaining domain REST endpoints | DEFERRED |
 | Web application | DEFERRED |
 | Mobile application | DEFERRED |
 | Noelia / HIVE services | DEFERRED |
@@ -240,21 +242,21 @@ returns 401, readiness returns 200 once migrated.
 | --- | --- |
 | `/health`, `/ready` | IMPLEMENTED |
 | `/audit`, `/audit/verify` | IMPLEMENTED (read and verify only, by design) |
+| `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me` | IMPLEMENTED |
+| `/organizations` (list, read, subtree, ancestors, create, update, move) | IMPLEMENTED |
 | All other domain routes | DEFERRED |
 
 The schema, contracts, authorization rules and calculation logic for the
 remaining domains exist; the HTTP handlers that expose them do not.
 
+`/organizations` has no DELETE, deliberately: organizational nodes anchor
+ownership, governance and audit history, so a node that stops operating is set
+to `DISSOLVED` rather than removed. The database enforces this with
+`ON DELETE RESTRICT`.
+
 ---
 
 ## 6. Not built
-
-### Authentication endpoints — DEFERRED
-The security context, token verification, session table and policy engine all
-exist, but there is **no login endpoint and no guard that populates the
-security context from a bearer token**. The authorization guard therefore
-rejects every authenticated route. This is the single most important gap: the
-API cannot currently be used by a real client.
 
 ### Web application — DEFERRED
 `apps/beyu-web` is an empty directory. None of the specified routes exist. The
@@ -299,13 +301,13 @@ not been run.
 
 | Suite | Tests |
 | --- | --- |
-| `@beyu/types` | 11 |
+| `@beyu/types` | 13 |
 | `@beyu/auth` | 43 |
 | `@beyu/security` | 32 |
 | `@beyu/config` | 14 |
 | `@beyu/events` | 18 |
-| `@beyu/api` | 47 |
-| **Total** | **165 passing** |
+| `@beyu/api` | 87 |
+| **Total** | **207 passing** |
 
 Typecheck passes across all 11 projects. Lint reports zero errors.
 

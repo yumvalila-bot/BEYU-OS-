@@ -29,6 +29,31 @@ describe('canonical naming', () => {
     }
   });
 
+  it('is not evaded by internal whitespace or a longer name', () => {
+    // A rule that a stray keystroke defeats is not a rule. Runs of internal
+    // whitespace normalize, and the phrase is caught inside a longer name.
+    for (const name of [
+      'BeYu  group',
+      'BEYU\tGROUP',
+      'BEYU\nGROUP',
+      'BEYU GROUP HOLDINGS',
+      'THE BEYU GROUP',
+    ]) {
+      assert.throws(
+        () => assertOrganizationNameAllowed(name),
+        /forbidden/i,
+        `${JSON.stringify(name)} must be rejected`,
+      );
+    }
+  });
+
+  it('does not reject names that merely contain the word "group"', () => {
+    // Over-blocking would be its own failure: these are legitimate.
+    for (const name of ['BEYU HEALTH GROUP PRACTICE', 'GROUP BEYU', 'BEYU GROUPS']) {
+      assert.doesNotThrow(() => assertOrganizationNameAllowed(name), `${name} must be accepted`);
+    }
+  });
+
   it('lists BEYU GROUP among the forbidden names', () => {
     assert.ok(FORBIDDEN_ORGANIZATION_NAMES.includes('BEYU GROUP'));
   });

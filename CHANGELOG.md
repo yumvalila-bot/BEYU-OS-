@@ -69,6 +69,16 @@ what exists.
   failures.
 - Request correlation ids, uniform error envelopes that withhold internals in
   production, and health and readiness probes.
+- Authentication: login, refresh, logout and `/auth/me`. Refresh tokens are
+  stored only as hashes and rotate on every use, replayed tokens are rejected,
+  and an unknown account is indistinguishable from a wrong password in both
+  response and timing. Accounts lock after five failed attempts.
+- Organization hierarchy endpoints: list, read, subtree, ancestors, create,
+  update and move. The canonical hierarchy, the single Trust root and the
+  SECTOR_LLC governance boundary are enforced on write, and a move rewrites the
+  materialized path of the whole subtree in one statement. There is
+  deliberately no delete: a node that stops operating is set to DISSOLVED so
+  the ownership, governance and audit history it anchors stays interpretable.
 
 ### Security
 
@@ -86,6 +96,18 @@ what exists.
   made explicit.
 - Placing BEYU FOUNDATION under the holding company returned a generic
   parent-type error instead of the specific sister-organization explanation.
+- The forbidden-name check compared against the exact string, so a name with
+  doubled internal whitespace was accepted by both the validator and the
+  database CHECK constraint. Whitespace is now normalized before comparison and
+  the phrase is rejected wherever it appears as a whole word, in the legal name
+  as well as the display name.
+- A forbidden name produced a 500 rather than a 400: the framework-free
+  validator throws a plain error that nothing translated at the HTTP boundary.
+- The seed and the repository wrote materialized paths in two different
+  conventions, which silently broke subtree and ancestor queries against seeded
+  rows. The self-inclusive form is now canonical, migration 0007 recomputes
+  every existing row from the parent links, and a CHECK constraint keeps future
+  writes consistent.
 
 ### Known limitations
 

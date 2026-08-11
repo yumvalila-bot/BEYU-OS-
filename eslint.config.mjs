@@ -140,13 +140,15 @@ export default tseslint.config(
     rules: { '@typescript-eslint/consistent-type-imports': 'off' },
   },
 
-  // The forbidden name must appear literally in exactly three places: the
-  // validator that rejects it, the tests proving it is rejected, and this
-  // configuration file. Everywhere else it is an error.
+  // The forbidden name may appear literally only where the job is to reject
+  // it: the validator, the tests proving it is rejected at both the unit and
+  // the HTTP boundary, and this configuration file. Everywhere else it is an
+  // error. Keep this list short and deliberate.
   {
     files: [
       'packages/types/src/organization.ts',
       'packages/types/src/organization.test.ts',
+      'services/beyu-api/test/organizations.e2e.test.ts',
       'eslint.config.mjs',
     ],
     rules: { 'no-restricted-syntax': 'off' },
