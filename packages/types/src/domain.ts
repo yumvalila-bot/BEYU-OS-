@@ -3,7 +3,7 @@
  * compliance, capital, documents, workflow and the OS registry.
  */
 
-import { OsId } from './authorization';
+import { type OsId } from './authorization';
 
 /* ------------------------------------------------------------------ */
 /* Ownership (spec §22)                                                */

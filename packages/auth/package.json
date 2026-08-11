@@ -9,7 +9,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test --import tsx \"src/**/*.test.ts\"",
     "clean": "rm -rf dist .turbo *.tsbuildinfo",
-    "lint": "echo \"@beyu/auth: lint delegated to root eslint config\""
+    "lint": "eslint src"
   },
   "dependencies": {
     "@beyu/types": "workspace:*"

@@ -10,7 +10,7 @@
  */
 
 import { randomUUID, createHash } from 'node:crypto';
-import { BeyuEvent, BeyuEventType } from '@beyu/types';
+import { type BeyuEvent, type BeyuEventType } from '@beyu/types';
 
 export interface PublishOptions {
   /** Overrides the generated event id, enabling caller-side idempotency. */
@@ -94,7 +94,7 @@ export class InMemoryEventBus implements EventBus {
         await handler(event as BeyuEvent);
       } catch (error) {
         // A failing consumer must never break the producer.
-        // eslint-disable-next-line no-console
+         
         console.error(
           JSON.stringify({
             level: 'error',

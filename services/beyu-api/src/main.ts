@@ -80,7 +80,7 @@ export async function bootstrap(): Promise<void> {
 // Only auto-start when executed directly, so tests can import the bootstrap.
 if (require.main === module) {
   bootstrap().catch((error: unknown) => {
-    // eslint-disable-next-line no-console
+     
     console.error(
       JSON.stringify({
         level: 'fatal',

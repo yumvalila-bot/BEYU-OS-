@@ -13,7 +13,7 @@
  * genuinely exists.
  */
 
-import { MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
+import { type MiddlewareConsumer, Module, type NestModule } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 
 import { AuditInterceptor } from './core/audit.interceptor';

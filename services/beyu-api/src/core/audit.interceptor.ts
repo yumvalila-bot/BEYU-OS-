@@ -13,15 +13,15 @@
  */
 
 import {
-  CallHandler,
-  ExecutionContext,
+  type CallHandler,
+  type ExecutionContext,
   Inject,
   Injectable,
-  NestInterceptor,
+  type NestInterceptor,
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Observable, tap } from 'rxjs';
+import { type Observable, tap } from 'rxjs';
 
 import { AuditRepository, type AppendAuditInput } from '../modules/audit/audit.repository';
 import { getRequestContext } from './request-context';
@@ -120,7 +120,7 @@ export class AuditInterceptor implements NestInterceptor {
     } catch (error) {
       // A gap in the audit trail is a serious operational event. Log it in a
       // form monitoring can alert on, but do not fail the user's request.
-      // eslint-disable-next-line no-console
+       
       console.error(
         JSON.stringify({
           level: 'error',

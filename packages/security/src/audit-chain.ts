@@ -7,7 +7,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { AuditChainVerification, AuditEvent } from '@beyu/types';
+import { type AuditChainVerification, type AuditEvent } from '@beyu/types';
 
 /** Deterministic JSON with sorted keys — hashing must be reproducible. */
 export function canonicalJson(value: unknown): string {

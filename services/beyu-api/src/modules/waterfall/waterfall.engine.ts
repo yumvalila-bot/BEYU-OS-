@@ -18,15 +18,15 @@
 
 import { createHash } from 'node:crypto';
 import {
-  AllocationCategory,
+  type AllocationCategory,
   TierComputationType,
-  WaterfallAllocationLine,
-  WaterfallCalculationInput,
-  WaterfallCalculationResult,
+  type WaterfallAllocationLine,
+  type WaterfallCalculationInput,
+  type WaterfallCalculationResult,
   WaterfallCalculationStatus,
-  WaterfallRuleSet,
-  WaterfallTier,
-  TierCondition,
+  type WaterfallRuleSet,
+  type WaterfallTier,
+  type TierCondition,
 } from '@beyu/types';
 
 export class WaterfallEngineError extends Error {

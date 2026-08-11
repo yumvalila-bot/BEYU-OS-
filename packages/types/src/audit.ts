@@ -4,7 +4,7 @@
  * to its predecessor, so any retroactive edit breaks verification.
  */
 
-import { Action, OsId, ResourceType } from './authorization';
+import { type Action, type OsId, type ResourceType } from './authorization';
 
 export enum AuditOutcome {
   Success = 'SUCCESS',

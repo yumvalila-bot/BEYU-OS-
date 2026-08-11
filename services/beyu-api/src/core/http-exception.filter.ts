@@ -7,7 +7,7 @@
  */
 
 import {
-  ArgumentsHost,
+  type ArgumentsHost,
   Catch,
   HttpException,
   HttpStatus,
@@ -58,7 +58,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
       code = HttpStatus[status] ?? 'ERROR';
     } else if (exception instanceof Error) {
       // Unexpected: log the full error, return a generic message.
-      // eslint-disable-next-line no-console
+       
       console.error(
         JSON.stringify({
           level: 'error',

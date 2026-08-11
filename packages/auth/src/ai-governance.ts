@@ -13,11 +13,11 @@
  */
 
 import {
-  AccessRequest,
+  type AccessRequest,
   Action,
-  AuthorizationDecision,
+  type AuthorizationDecision,
   ResourceType,
-  SecurityContext,
+  type SecurityContext,
 } from '@beyu/types';
 import { authorize, MATERIAL_RESOURCES } from './policy-engine';
 

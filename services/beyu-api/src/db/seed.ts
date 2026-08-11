@@ -23,8 +23,6 @@
 
 import type { Database } from './driver';
 
-const SEED_MARKER = 'seed:v1';
-
 /**
  * Jurisdiction for the seeded entities.
  *

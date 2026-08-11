@@ -12,16 +12,16 @@
  */
 
 import {
-  AccessRequest,
+  type AccessRequest,
   Action,
-  AuthorizationDecision,
+  type AuthorizationDecision,
   CLASSIFICATION_ORDER,
   DataClassification,
   OsId,
-  Permission,
+  type Permission,
   ResourceType,
   Role,
-  SecurityContext,
+  type SecurityContext,
 } from '@beyu/types';
 
 /** Actions considered high-impact; they require MFA and human accountability. */
