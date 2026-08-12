@@ -12,10 +12,10 @@
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
-    "next": "14.2.15",
+    "@beyu/health-types": "workspace:*",
+    "next": "16.3.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-    "@beyu/health-types": "workspace:*",
     "server-only": "^0.0.1"
   },
   "devDependencies": {

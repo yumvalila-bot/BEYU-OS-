@@ -14,7 +14,7 @@ async function fetchExecutive(token: string) {
 }
 
 export default async function DashboardPage() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('beyu_health_access')?.value;
   const exec = token ? await fetchExecutive(token) : null;
 

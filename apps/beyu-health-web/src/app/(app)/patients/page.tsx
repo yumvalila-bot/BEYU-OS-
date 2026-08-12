@@ -16,7 +16,7 @@ async function fetchPatients(token: string) {
 }
 
 export default async function Page() {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('beyu_health_access')?.value;
   const data = token ? await fetchPatients(token) : null;
   return (

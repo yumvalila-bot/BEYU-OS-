@@ -21,7 +21,7 @@ export class HealthApiClient {
     if (this.opts.token) headers['Authorization'] = `Bearer ${this.opts.token}`;
     if (this.opts.tenantId) headers['X-Tenant-ID'] = this.opts.tenantId;
     if (this.opts.requestId) headers['X-Request-ID'] = this.opts.requestId;
-    const res = await fetch(`${this.opts.baseUrl}/api/v1${path}`, { ...init, headers, cache: 'no-store' });
+    const res = await fetch(`${this.opts.baseUrl}/api/v1${path}`, { ...init, headers } as any);
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`Health API ${res.status} ${path}: ${text.slice(0,800)}`);
@@ -113,4 +113,16 @@ export class HealthApiClient {
     get: (id: string) => this.request(`/tenants/${id}`),
     stats: (id: string) => this.request(`/tenants/${id}/stats`),
   };
+  // Inventory
+  inventory = {
+    items: (q?: string) => this.request(`/inventory/items?q=${encodeURIComponent(q ?? '')}`),
+    lowStock: () => this.request('/inventory/low-stock'),
+    warehouses: () => this.request('/inventory/warehouses'),
+  };
+  // Workforce
+  workforce = {
+    practitioners: (q?: string) => this.request(`/workforce/practitioners?q=${encodeURIComponent(q ?? '')}`),
+  };
 }
+
+export const HEALTH_API_VERSION = '1.0.0';
