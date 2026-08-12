@@ -4,7 +4,7 @@
  * PostgreSQL + PGLite abstraction with RLS tenant context.
  */
 import { mkdir } from 'node:fs/promises';
-import { loadConfig } from '@beyu/config';
+import { isSupabaseConnection, resolveHealthDatabaseTarget } from './connection-target';
 
 export interface QueryResult<T = Record<string, unknown>> {
   rows: T[];
@@ -103,6 +103,7 @@ class PostgresDatabase implements Database {
           max: Number(process.env.DATABASE_POOL_MAX ?? 10),
           idleTimeoutMillis: 30000,
           connectionTimeoutMillis: 10000,
+          ssl: isSupabaseConnection(this.connectionString) ? { rejectUnauthorized: true } : undefined,
         });
       })();
     }
@@ -141,10 +142,10 @@ class PostgresDatabase implements Database {
 
 let instance: Database | null = null;
 export function createDatabase(): Database {
-  const config = loadConfig();
-  return config.databaseDriver === 'postgres'
-    ? new PostgresDatabase(config.databaseUrl)
-    : new PgliteDatabase(config.pgliteDataDir.replace('beyu_os', 'beyu_health_os'));
+  const target = resolveHealthDatabaseTarget();
+  return target.driver === 'postgres'
+    ? new PostgresDatabase(target.url)
+    : new PgliteDatabase(target.pgliteDataDir);
 }
 export function getDatabase(): Database { if (!instance) instance = createDatabase(); return instance; }
 export async function closeDatabase(): Promise<void> { if (instance) { await instance.close(); instance = null; } }

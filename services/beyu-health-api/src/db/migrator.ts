@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Database } from './driver';
 import { execScript } from './driver';
+import { assertSafeMigrate, assertSafeReset, resolveHealthDatabaseTarget } from './connection-target';
 
 export interface MigrationFile {
   version: string;
@@ -28,7 +29,30 @@ async function ensureMigrationTable(db: Database): Promise<void> {
   );`);
 }
 
+export async function migrationStatus(db: Database | null, options: { dir?: string } = {}): Promise<{
+  files: string[];
+  applied: string[];
+  pending: string[];
+  target: string;
+}> {
+  const files = loadMigrations(options.dir);
+  const target = resolveHealthDatabaseTarget();
+  if (!db) {
+    return { files: files.map((f) => f.name), applied: [], pending: files.map((f) => f.name), target: target.sanitized };
+  }
+  try {
+    const existing = await db.query<{ version: string }>('SELECT version FROM public.health_schema_migrations');
+    const appliedVersions = new Set(existing.rows.map((r) => r.version));
+    const applied = files.filter((f) => appliedVersions.has(f.version)).map((f) => f.name);
+    const pending = files.filter((f) => !appliedVersions.has(f.version)).map((f) => f.name);
+    return { files: files.map((f) => f.name), applied, pending, target: target.sanitized };
+  } catch {
+    return { files: files.map((f) => f.name), applied: [], pending: files.map((f) => f.name), target: target.sanitized };
+  }
+}
+
 export async function migrate(db: Database, options: { dir?: string; log?: (msg:string)=>void } = {}): Promise<{applied:string[]; skipped:string[]}> {
+  assertSafeMigrate(resolveHealthDatabaseTarget());
   const log = options.log ?? ((m:string)=>console.log(m));
   await ensureMigrationTable(db);
   const existing = await db.query<{version:string; name:string; checksum:string}>('SELECT version, name, checksum FROM public.health_schema_migrations');
@@ -50,7 +74,7 @@ export async function migrate(db: Database, options: { dir?: string; log?: (msg:
 }
 
 export async function reset(db: Database): Promise<void> {
-  if (process.env.BEYU_ENV === 'production') throw new Error('Refusing reset in production');
+  assertSafeReset(resolveHealthDatabaseTarget());
   const schemas = ['health_identity','health_tenant','health_patient','health_clinical','health_scheduling','health_pharmacy','health_inventory','health_lab','health_radiology','health_ophthalmology','health_billing','health_insurance','health_ambulance','health_telemedicine','health_workforce','health_documents','health_notifications','health_reporting','health_compliance','health_governance','health_audit','health_ai','health_integration'];
   for (const s of schemas) await execScript(db, `DROP SCHEMA IF EXISTS ${s} CASCADE;`);
   await execScript(db, 'DROP TABLE IF EXISTS public.health_schema_migrations CASCADE;');

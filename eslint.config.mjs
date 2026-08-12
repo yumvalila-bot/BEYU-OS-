@@ -112,6 +112,15 @@ export default tseslint.config(
               name: '@electric-sql/pglite',
               message: 'Frontends must never access PostgreSQL directly. Use the API client.',
             },
+            {
+              name: '@supabase/supabase-js',
+              message:
+                'Privileged Supabase access stays in NestJS. The browser must not import supabase-js with a secret key.',
+            },
+            {
+              name: '@prisma/client',
+              message: 'Frontends must never access the database directly. Use the Health OS API.',
+            },
           ],
           patterns: [
             {

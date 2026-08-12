@@ -114,6 +114,26 @@ Health endpoint:
 curl http://localhost:4001/api/v1/health
 ```
 
+## Deployment pipeline
+
+```
+Arena (this branch) → GitHub → Vercel (Health web, NEW project)
+                              → NestJS API (not the marketing Vercel project)
+                              → Supabase PostgreSQL project A
+```
+
+| Surface | Binding |
+|---|---|
+| Marketing site | **Unchanged** at https://beyu-health-os11.vercel.app/ (`beyu-health-os1.1`) |
+| Health OS web | Separate Vercel project. Template: `apps/beyu-health-web/vercel.json` and `infra/vercel/health-web.project.json` |
+| Health OS API | NestJS (`services/beyu-health-api`). Not deployed by the marketing Vercel project |
+| Database | Supabase project **A** `ztulvqnvtxmiejnvdcit` — identity only in `infra/supabase/project-identity.json` |
+| Project B | `siyzygezdmlxbvwttrdz` — **not** used |
+
+Local and CI stay on PGlite / docker-compose. `pnpm health:db:status` is read-only. `db:reset` and unattended migrations are refused against Supabase. Secret keys stay in NestJS; the Next.js app only receives `NEXT_PUBLIC_HEALTH_API_URL`.
+
+This environment has GitHub access but no Vercel token. Creating the Health web Vercel project and setting server secrets must be done in the Vercel dashboard (do **not** relink `beyu-health-os1.1`).
+
 ## Repository Layout
 
 | Path | Contents |

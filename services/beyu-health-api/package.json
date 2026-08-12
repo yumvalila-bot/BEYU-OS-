@@ -12,13 +12,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src",
     "test": "node --test --require @swc-node/register \"test/**/*.test.ts\"",
+    "db:status": "node --require @swc-node/register src/db/cli.ts status",
     "db:migrate": "node --require @swc-node/register src/db/cli.ts migrate",
     "db:seed": "node --require @swc-node/register src/db/cli.ts seed",
     "db:reset": "node --require @swc-node/register src/db/cli.ts reset",
     "db:verify-audit": "node --require @swc-node/register src/db/cli.ts verify-audit",
     "clean": "rm -rf dist .turbo",
     "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "node -e \"console.error('Refusing prisma migrate. Authoritative Health OS migrations are raw SQL. Use pnpm --filter @beyu/health-api db:status, then db:migrate only after review.'); process.exit(1)\""
   },
   "dependencies": {
     "@beyu/auth": "workspace:*",
@@ -33,6 +34,7 @@
     "@nestjs/schedule": "^6.1.3",
     "@nestjs/swagger": "^11.4.6",
     "@prisma/client": "^5.14.0",
+    "@supabase/supabase-js": "^2.49.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "reflect-metadata": "^0.2.2",

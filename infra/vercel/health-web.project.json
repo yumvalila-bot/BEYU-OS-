@@ -1,0 +1,38 @@
+{
+  "existingMarketingProject": {
+    "name": "beyu-health-os1.1",
+    "productionUrl": "https://beyu-health-os11.vercel.app/",
+    "action": "DO_NOT_RELINK",
+    "reason": "This deployment is the public marketing site and must keep its domain and build."
+  },
+  "healthOsWebProject": {
+    "createNew": true,
+    "suggestedName": "beyu-health-os-app",
+    "githubRepository": "yumvalila-bot/BEYU-OS-",
+    "rootDirectory": "apps/beyu-health-web",
+    "framework": "nextjs",
+    "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+    "buildCommand": "cd ../.. && pnpm --filter @beyu/health-types build && pnpm --filter @beyu/health-web build",
+    "outputDirectory": ".next",
+    "productionBranch": "Feature/health-os",
+    "previewBranches": ["arena/*", "feature/*", "Feature/*"],
+    "doNotAssignDomain": "beyu-health-os11.vercel.app",
+    "requiredEnvNames": [
+      "NEXT_PUBLIC_HEALTH_API_URL",
+      "NEXT_PUBLIC_BEYU_OS_API_URL"
+    ],
+    "forbiddenEnvNamesOnThisProject": [
+      "SUPABASE_SECRET_KEY",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "DATABASE_URL",
+      "DIRECT_URL",
+      "HEALTH_DATABASE_URL",
+      "JWT_SECRET"
+    ]
+  },
+  "notes": [
+    "A second Vercel project is required because the existing project hosts the marketing site.",
+    "This Arena environment has no Vercel token, so the new project must be created in the Vercel dashboard or with a VERCEL_TOKEN.",
+    "NestJS APIs are not deployed by this Vercel project."
+  ]
+}

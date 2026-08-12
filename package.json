@@ -18,7 +18,10 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "db:migrate": "pnpm --filter @beyu/api db:migrate",
     "db:seed": "pnpm --filter @beyu/api db:seed",
-    "db:reset": "pnpm --filter @beyu/api db:reset"
+    "db:reset": "pnpm --filter @beyu/api db:reset",
+    "health:db:status": "pnpm --filter @beyu/health-api db:status",
+    "health:db:migrate": "pnpm --filter @beyu/health-api db:migrate",
+    "health:db:seed": "pnpm --filter @beyu/health-api db:seed"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",
