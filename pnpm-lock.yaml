@@ -145,6 +145,16 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  packages/health-api-client:
+    dependencies:
+      '@beyu/health-types':
+        specifier: workspace:*
+        version: link:../health-types
+    devDependencies:
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   packages/health-types:
     devDependencies:
       '@swc-node/register':
