@@ -1,0 +1,79 @@
+# BEYU HEALTH OS — local development stack extension
+# Extends beyu-os stack with health-specific services.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.health.yml up -d
+#   HEALTH variant includes second Postgres database for health OS isolation.
+
+name: beyu-health-os
+
+services:
+  postgres-health:
+    image: postgres:16-alpine
+    container_name: beyu-health-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beyu_health
+      POSTGRES_PASSWORD: beyu_health_dev
+      POSTGRES_DB: beyu_health_os
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    ports:
+      - '5433:5432'
+    volumes:
+      - postgres-health-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U beyu_health -d beyu_health_os']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  health-api:
+    image: node:20-alpine
+    container_name: beyu-health-api
+    working_dir: /app
+    command: ['sh', '-c', 'corepack enable && pnpm --filter @beyu/health-api dev']
+    ports:
+      - '4001:4001'
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/beyu-web/.next
+      - /app/services/beyu-api/dist
+      - /app/services/beyu-health-api/dist
+    environment:
+      BEYU_ENV: development
+      PORT: 4000
+      HEALTH_API_PORT: 4001
+      DATABASE_DRIVER: postgres
+      DATABASE_URL: postgresql://beyu_health:beyu_health_dev@postgres-health:5432/beyu_health_os
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-only-insecure-secret-change-me-012345678901234567
+      JWT_ISSUER: beyu-health-os
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      STORAGE_DRIVER: filesystem
+      EVENT_DRIVER: inmemory
+      AI_DRIVER: stub
+    depends_on:
+      postgres-health:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  health-web:
+    image: node:20-alpine
+    container_name: beyu-health-web
+    working_dir: /app
+    command: ['sh', '-c', 'corepack enable && pnpm --filter @beyu/health-web dev']
+    ports:
+      - '3001:3001'
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/beyu-web/.next
+      - /app/apps/beyu-health-web/.next
+    environment:
+      NEXT_PUBLIC_HEALTH_API_URL: http://localhost:4001
+    depends_on:
+      - health-api
+
+volumes:
+  postgres-health-data:

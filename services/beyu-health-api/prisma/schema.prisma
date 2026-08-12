@@ -1,0 +1,46 @@
+// BEYU HEALTH OS — Prisma schema
+// Production-grade healthcare operating system domain model
+// Supports PostgreSQL with tenant isolation, audit, and clinical governance
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Shared enums mirror health-types
+enum TenantType {
+  HOSPITAL_GROUP
+  HOSPITAL
+  CLINIC
+  MEDICAL_CENTER
+  EYE_CENTER
+  PHARMACY
+  LABORATORY
+  IMAGING_CENTER
+  AMBULANCE_SERVICE
+  TELEMEDICINE_ORG
+  HEALTH_INSURER
+  CORPORATE_HEALTH
+  NGO_HEALTH
+  PUBLIC_HEALTH
+  INDIVIDUAL_PRACTICE
+}
+
+enum TenantStatus {
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+// This Prisma file is authoritative documentation.
+// The actual runtime migrations use raw SQL for RLS and hash-chain support,
+// which Prisma cannot express. Both are kept in sync.
+
+/// NOTE: The full normalized schema is implemented in SQL migrations
+/// 0001-0010 for production RLS, hash-chain audit, and performance.
+/// This file documents the logical model for tooling and type generation.

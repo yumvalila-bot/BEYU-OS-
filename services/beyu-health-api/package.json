@@ -1,0 +1,55 @@
+{
+  "name": "@beyu/health-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BEYU HEALTH OS — enterprise healthcare operating system. API platform.",
+  "license": "UNLICENSED",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch --require @swc-node/register src/main.ts",
+    "start": "node dist/main.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src",
+    "test": "node --test --require @swc-node/register \"test/**/*.test.ts\"",
+    "db:migrate": "node --require @swc-node/register src/db/cli.ts migrate",
+    "db:seed": "node --require @swc-node/register src/db/cli.ts seed",
+    "db:reset": "node --require @swc-node/register src/db/cli.ts reset",
+    "db:verify-audit": "node --require @swc-node/register src/db/cli.ts verify-audit",
+    "clean": "rm -rf dist .turbo",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@beyu/auth": "workspace:*",
+    "@beyu/config": "workspace:*",
+    "@beyu/events": "workspace:*",
+    "@beyu/health-types": "workspace:*",
+    "@beyu/security": "workspace:*",
+    "@beyu/types": "workspace:*",
+    "@nestjs/common": "^10.4.15",
+    "@nestjs/core": "^10.4.15",
+    "@nestjs/platform-express": "^10.4.15",
+    "@nestjs/swagger": "^8.1.0",
+    "@prisma/client": "^5.14.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.1",
+    "zod": "^3.23.8"
+  },
+  "optionalDependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "pg": "^8.13.1"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^10.4.15",
+    "@swc-node/register": "^1.10.9",
+    "@swc/core": "^1.10.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.2",
+    "@types/pg": "^8.11.10",
+    "prisma": "^5.14.0",
+    "typescript": "^5.7.2"
+  }
+}
