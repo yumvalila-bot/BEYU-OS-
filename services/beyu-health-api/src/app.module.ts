@@ -1,11 +1,12 @@
 /**
  * BEYU HEALTH OS — Application Root Module
  * Canonical healthcare operating system assembling all domains.
- * Spec §5, §37, §85
+ * Spec §5, §37, §85 — With automatic report generation
  */
 
 import { Module, type MiddlewareConsumer, type NestModule, ValidationPipe } from '@nestjs/common';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 
 import { DatabaseModule } from './core/database.module';
 import { ContextMiddleware } from './core/context.middleware';
@@ -44,6 +45,7 @@ import { IntegrationModule } from './modules/integration/integration.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     DatabaseModule,
     IdentityModule,
     AuditModule,
