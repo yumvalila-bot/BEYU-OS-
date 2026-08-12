@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE } from '../../core/database.module';
+import { DATABASE } from '../../core/database.token';
 import type { Database, DatabaseSession } from '../../db/driver';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 
 export interface AppendAuditInput {
   actorUserId?: string | null;
@@ -40,7 +40,7 @@ export class AuditRepository {
     } catch {
       // first event
     }
-    const id = crypto.randomUUID();
+    const id = randomUUID();
     const now = new Date().toISOString();
     const hashInput = `${id}${input.action}${input.resourceType}${input.resourceId ?? ''}${prevHash}${now}${input.tenantId ?? ''}`;
     const hash = createHash('sha256').update(hashInput).digest('hex');

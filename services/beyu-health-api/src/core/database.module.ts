@@ -1,8 +1,7 @@
 import { Global, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { closeDatabase, getDatabase, type Database } from '../db/driver';
 import { AuditRepository } from '../modules/audit/audit.repository';
-
-export const DATABASE = Symbol('BEYU_HEALTH_DATABASE');
+import { DATABASE } from './database.token';
 
 @Global()
 @Module({

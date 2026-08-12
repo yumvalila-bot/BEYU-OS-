@@ -7,7 +7,7 @@ import { IsEmail, IsOptional, IsString, MinLength, IsArray } from 'class-validat
 import { hashPassword } from '@beyu/security';
 import { UserRepository } from './user.repository';
 import { getSecurityContext } from '../../core/request-context';
-import { DATABASE } from '../../core/database.module';
+import { DATABASE } from '../../core/database.token';
 import { Inject } from '@nestjs/common';
 import type { Database } from '../../db/driver';
 

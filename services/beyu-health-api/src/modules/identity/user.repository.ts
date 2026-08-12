@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DATABASE } from '../../core/database.module';
+import { DATABASE } from '../../core/database.token';
 import type { Database } from '../../db/driver';
 import type { HealthSecurityContext } from '../../common/security';
 
