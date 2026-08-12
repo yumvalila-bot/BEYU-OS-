@@ -1,5 +1,5 @@
 import type { Database, DatabaseSession } from '../db/driver';
-import { AuditRepository, type AppendAuditInput } from '../modules/audit/audit.repository';
+import { type AuditRepository, type AppendAuditInput } from '../modules/audit/audit.repository';
 import type { HealthSecurityContext } from './security';
 import { toDatabaseContext } from './tenant-scope';
 

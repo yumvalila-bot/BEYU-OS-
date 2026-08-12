@@ -1,4 +1,4 @@
-import { LabOrderStatus, LabResultStatus } from './enums';
+import { type LabOrderStatus, type LabResultStatus } from './enums';
 
 export interface LabTest {
   id: string;

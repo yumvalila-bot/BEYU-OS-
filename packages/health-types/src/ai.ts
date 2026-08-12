@@ -1,4 +1,4 @@
-import { NoeliaOutputType } from './enums';
+import { type NoeliaOutputType } from './enums';
 
 export interface NoeliaQuery {
   question: string;

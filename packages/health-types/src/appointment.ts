@@ -1,4 +1,4 @@
-import { AppointmentStatus, TriageCategory } from './enums';
+import { type AppointmentStatus, type TriageCategory } from './enums';
 
 export interface Appointment {
   id: string;

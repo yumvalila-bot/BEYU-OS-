@@ -1,4 +1,4 @@
-import { AllergyCriticality, EncounterClass, EncounterStatus } from './enums';
+import { type AllergyCriticality, type EncounterClass, type EncounterStatus } from './enums';
 
 export interface Allergy {
   id: string;

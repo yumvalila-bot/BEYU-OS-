@@ -1,4 +1,4 @@
-import { PatientGender } from './enums';
+import { type PatientGender } from './enums';
 
 export interface Patient {
   id: string;

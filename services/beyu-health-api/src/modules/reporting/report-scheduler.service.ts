@@ -3,7 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { DATABASE } from '../../core/database.token';
 import { Inject } from '@nestjs/common';
 import type { Database } from '../../db/driver';
-import { ReportingService } from './reporting.service';
+import { type ReportingService } from './reporting.service';
 
 /**
  * BEYU HEALTH OS — Automatic Report Scheduler

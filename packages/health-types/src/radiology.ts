@@ -1,4 +1,4 @@
-import { ImagingModality } from './enums';
+import { type ImagingModality } from './enums';
 
 export interface ImagingOrder {
   id: string;

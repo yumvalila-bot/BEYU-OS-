@@ -1,4 +1,4 @@
-import { FacilityType, TenantStatus, TenantType } from './enums';
+import { type FacilityType, type TenantStatus, type TenantType } from './enums';
 
 export interface Tenant {
   id: string;

@@ -1,4 +1,4 @@
-import { MedicationRequestStatus } from './enums';
+import { type MedicationRequestStatus } from './enums';
 
 export interface Drug {
   id: string;
