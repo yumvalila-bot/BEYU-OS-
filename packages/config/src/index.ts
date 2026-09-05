@@ -51,6 +51,32 @@ export interface BeyuConfig {
     bcryptRounds: number;
     requireMfaForHighImpact: boolean;
   };
+  /**
+   * Noelia / HIVE language-model access (spec §41, §42, §58).
+   *
+   * `apiKeyRef` is a REFERENCE to a secret — a secret-manager path or an
+   * environment variable name — not the secret itself. The value is resolved
+   * at call time by the provider adapter. Holding the material in config would
+   * put it in every log line that ever dumps the config object, and in every
+   * heap snapshot taken from a running process.
+   *
+   * With driver 'stub' (the default) no external call is made at all.
+   */
+  ai: {
+    driver: 'stub' | 'openai-compatible';
+    baseUrl: string | null;
+    model: string;
+    apiKeyRef: string | null;
+    /** Hard ceiling on tokens per response, to bound cost and latency. */
+    maxOutputTokens: number;
+    requestTimeoutMs: number;
+    /**
+     * Governance kill switch. When false, Noelia endpoints answer 503 and no
+     * prompt ever leaves the process. Independent of `driver` so an operator
+     * can stop AI processing without a redeploy.
+     */
+    enabled: boolean;
+  };
 }
 
 function str(key: string, fallback?: string): string {
@@ -94,6 +120,9 @@ export function loadConfig(): BeyuConfig {
 
   const env = str('BEYU_ENV', 'development') as BeyuEnvironment;
   const isProduction = env === 'production';
+
+  // Read ahead of the config literal: the default for AI_ENABLED depends on it.
+  const aiDriver = str('AI_DRIVER', 'stub') as 'stub' | 'openai-compatible';
 
   const jwtSecret = process.env.JWT_SECRET ?? '';
   if (isProduction && jwtSecret.length < 32) {
@@ -141,7 +170,32 @@ export function loadConfig(): BeyuConfig {
       bcryptRounds: num('BCRYPT_ROUNDS', 12),
       requireMfaForHighImpact: bool('REQUIRE_MFA_HIGH_IMPACT', true),
     },
+    ai: {
+      driver: aiDriver,
+      baseUrl: process.env.AI_BASE_URL ?? null,
+      model: str('AI_MODEL', 'stub-deterministic'),
+      // Deliberately a *_REF: the name of the variable holding the key, never
+      // the key. See the BeyuConfig.ai doc comment.
+      apiKeyRef: process.env.AI_API_KEY_REF ?? null,
+      maxOutputTokens: num('AI_MAX_OUTPUT_TOKENS', 1024),
+      requestTimeoutMs: num('AI_REQUEST_TIMEOUT_MS', 30_000),
+      // Off by default in production unless a real provider is configured.
+      // Outside production the stub is the point, so it is on.
+      enabled: bool('AI_ENABLED', isProduction ? aiDriver !== 'stub' : true),
+    },
   };
+
+  if (isProduction && config.ai.enabled && config.ai.driver === 'stub') {
+    // Reached only when an operator has explicitly set AI_ENABLED=true against
+    // the stub driver. A stubbed model in production would answer governance
+    // questions with canned text that reads as authoritative, and the person
+    // acting on it would have no way to tell. Refuse to start.
+    throw new Error(
+      'AI_ENABLED is true but AI_DRIVER is "stub" and BEYU_ENV is production. ' +
+        'Configure a real provider or leave AI disabled. Refusing to serve ' +
+        'stubbed intelligence as if it were real analysis.',
+    );
+  }
 
   cached = config;
   return config;

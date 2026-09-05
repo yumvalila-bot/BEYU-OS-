@@ -80,6 +80,7 @@ export class AuditRepository {
         resourceType: input.resourceType,
         resourceId: input.resourceId,
         outcome: input.outcome,
+        reason: input.reason ?? null,
         previousState: input.previousState ?? null,
         newState: input.newState ?? null,
         occurredAt,
@@ -162,6 +163,24 @@ export class AuditRepository {
     return result.rows.map(rowToEvent);
   }
 
+  /**
+   * Reads the most recent records, newest first.
+   *
+   * `list()` walks the chain forwards because that is the order verification
+   * needs. A reviewer opening the trail wants the opposite: the newest events,
+   * not the oldest ones. Taking the tail in SQL rather than reading the whole
+   * table and slicing keeps that cheap as the log grows.
+   */
+  async listLatest(options: { limit?: number } = {}): Promise<AuditEvent[]> {
+    const result = await this.db.query<Record<string, any>>(
+      `SELECT * FROM audit.audit_log
+        ORDER BY sequence DESC
+        LIMIT $1`,
+      [options.limit ?? 100],
+    );
+    return result.rows.map(rowToEvent);
+  }
+
   /** Verifies the chain and records the outcome (spec §39). */
   async verify(options: { fromSequence?: number } = {}): Promise<AuditChainVerification> {
     const events = await this.list({ fromSequence: options.fromSequence, limit: 1_000_000 });
@@ -199,6 +218,7 @@ function rowToEvent(row: Record<string, any>): AuditEvent {
     resourceType: row.resource_type,
     resourceId: row.resource_id,
     outcome: row.outcome,
+    reason: row.reason,
     previousState: row.previous_state,
     newState: row.new_state,
     authorizationContext: row.authorization_context,

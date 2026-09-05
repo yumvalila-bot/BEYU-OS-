@@ -51,6 +51,8 @@ export enum ResourceType {
   Hive = 'hive',
   Country = 'country',
   Sector = 'sector',
+  /** An attached OS in the federation (Health, Agriculture, Foundation, ...). */
+  Os = 'os',
 }
 
 /** Canonical BEYU OS roles (RBAC layer). */

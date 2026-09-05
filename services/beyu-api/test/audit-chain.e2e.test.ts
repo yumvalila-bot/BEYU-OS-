@@ -107,6 +107,27 @@ describe('audit chain (end-to-end against PostgreSQL)', () => {
     assert.equal(verification.checkedCount, 5);
   });
 
+  it('returns the newest records first when reading the tail', async () => {
+    // The trail UI shows "most recent first". list() walks the chain forwards
+    // for verification, so reading the tail is a separate query — and if it
+    // silently returned the oldest rows, the screen would claim to show recent
+    // activity while showing the opposite.
+    const latest = await repo.listLatest({ limit: 3 });
+
+    assert.equal(latest.length, 3);
+    const sequences = latest.map((e) => Number(e.sequence));
+    assert.deepEqual(
+      sequences,
+      [...sequences].sort((a, b) => b - a),
+      'listLatest must return descending sequences',
+    );
+
+    // It must be the tail of the chain, not merely a sorted arbitrary page.
+    const all = await repo.list();
+    const highest = Math.max(...all.map((e) => Number(e.sequence)));
+    assert.equal(sequences[0], highest);
+  });
+
   it('records each verification run for later inspection', async () => {
     const runs = await db.query<{ valid: boolean; checked_count: string }>(
       'SELECT valid, checked_count FROM audit.chain_verifications ORDER BY verified_at DESC LIMIT 1',

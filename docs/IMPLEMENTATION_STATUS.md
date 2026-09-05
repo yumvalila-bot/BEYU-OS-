@@ -20,11 +20,16 @@ working, what is partial and what has not been built.
 The **foundation is production-grade and proven**: the data model, the security
 model, the authorization engine, the audit chain, the waterfall calculation
 engine and the API skeleton. Authentication and the organization domain are
-now built end to end. **209 automated tests pass.**
+now built end to end, as is the OS federation seam that lets BEYU HEALTH OS,
+BEYU AGRICULTURE OS, BEYU FINANCE OS and BEYU FOUNDATION OS attach
+independently. Noelia AI is now built end to end behind that governance
+boundary, against a clearly-labelled stub model provider. **292 automated tests
+pass.**
 
-The **domain API surface and both frontends are not built.** BEYU OS v1.0 as
-delivered here is a backend foundation, not a usable end-user product. Anyone
-planning against it should read the DEFERRED section carefully.
+The **remaining domain API surface is not built.** BEYU OS v1.0 as delivered
+here is a backend foundation with two working front ends over the seven domains
+that exist, not a complete end-user product. Anyone planning against it should
+read the DEFERRED section carefully.
 
 | Layer | Status |
 | --- | --- |
@@ -37,10 +42,13 @@ planning against it should read the DEFERRED section carefully.
 | API runtime and cross-cutting concerns | IMPLEMENTED |
 | Authentication endpoints and sessions | IMPLEMENTED |
 | Organization hierarchy endpoints | IMPLEMENTED |
+| OS federation / attachment points | IMPLEMENTED — see [OS_FEDERATION.md](OS_FEDERATION.md) |
 | Remaining domain REST endpoints | DEFERRED |
-| Web application | DEFERRED |
+| Noelia AI (governance, ask, recommendations) | IMPLEMENTED — against a STUBBED model provider |
+| Web application (`apps/beyu-web`) | PARTIALLY IMPLEMENTED |
+| Operator console (`apps/beyu-console`) | PARTIALLY IMPLEMENTED |
 | Mobile application | DEFERRED |
-| Noelia / HIVE services | DEFERRED |
+| HIVE service | DEFERRED |
 | Deployment infrastructure | PARTIALLY IMPLEMENTED |
 
 ---
@@ -256,21 +264,153 @@ to `DISSOLVED` rather than removed. The database enforces this with
 
 ---
 
-## 6. Not built
+## 6. Web application — PARTIALLY IMPLEMENTED
 
-### Web application — DEFERRED
-`apps/beyu-web` is an empty directory. None of the specified routes exist. The
-dark navy and gold theme is not implemented. **No logo has been created**: the
-specification requires the owner's canonical logo, and inventing one would be
-wrong.
+`apps/beyu-web` is a Next.js 14 App Router application in TypeScript with
+Tailwind. All twenty specified routes exist and render, plus `/auth/login`.
+
+### What is real
+
+| Route | Status | Data source |
+| --- | --- | --- |
+| `/auth/login` | IMPLEMENTED | `POST /auth/login`; sets the session |
+| `/dashboard` | IMPLEMENTED | organizations, OS registry, audit tail, chain verification |
+| `/organization` | IMPLEMENTED | `GET /organizations` — real hierarchy |
+| `/integrations` | IMPLEMENTED | `GET /os-registry` — real attachment and lifecycle state |
+| `/audit` | IMPLEMENTED | `GET /audit?order=desc`, `GET /audit/verify` |
+| `/settings` | IMPLEMENTED | `GET /auth/me` — the live security context |
+
+### What is not
+
+| Route | Status |
+| --- | --- |
+| `/ownership` `/governance` `/countries` `/sectors` `/tenants` `/strategy` `/risks` `/compliance` `/capital` `/waterfall` `/documents` `/workflows` `/reports` `/notifications` `/noelia` | DEFERRED |
+
+Note that `/noelia` is deferred **in this application only**. The Noelia API is
+built (§6.5) and has a working UI in the operator console (§6.6); the Next.js
+screen for it has not been written yet.
+
+These fifteen routes render a "not built" panel naming the API endpoint each
+one is waiting on. **They deliberately show no mock data.** A screen full of
+plausible invented ownership percentages or risk scores is worse than an empty
+one: it invites decisions. The backend endpoints they need do not exist yet
+(see §5), which is the real constraint — the UI is not the bottleneck.
+
+### Design decisions
+
+- **The browser never holds a token and never calls the API host.** Every page
+  is a server component that calls the API from the Next server, reading the
+  access token from an httpOnly, sameSite=strict cookie (`Secure` outside
+  development). There is no `/api/v1` rewrite: a plain rewrite would forward
+  requests unauthenticated, and the alternative leaks the token to client
+  JavaScript.
+- **Panels degrade independently.** `tryApi` returns a discriminated result
+  rather than throwing, so one failing endpoint renders one error panel instead
+  of blanking the page.
+- **Framing is denied by default** and opt-in via `BEYU_ALLOW_EMBEDDING`, set in
+  `src/middleware.ts` rather than `next.config.mjs` so an operator can change it
+  without a rebuild.
+- Client components are limited to the shell, theme toggle, sidebar and login
+  form. Everything else is server-rendered.
+
+### Branding — PARTIALLY IMPLEMENTED
+The dark navy and gold theme is implemented, with light and dark modes.
+**No logo has been created**: the specification requires the owner's canonical
+logo, and inventing one would be wrong. The header currently shows a lettermark
+placeholder that is meant to be replaced by the supplied asset.
+
+---
+
+## 6.5 Noelia AI — IMPLEMENTED, against a STUBBED model provider
+
+Read that heading carefully, because the split is the whole point.
+
+**The governance is real.** Nine endpoints under `/api/v1/noelia`, real
+persistence in the `ai.*` schema, RLS, audit, and a recommendation/execution
+split enforced by database CHECK constraints rather than by convention. 19 e2e
+tests cover it (`test/noelia.e2e.test.ts`); the guarantees they establish are
+tabulated in [`TEST_REPORT.md`](TEST_REPORT.md) §12.
+
+**The model is stubbed.** `stub-deterministic` matches a question against
+records the caller is already authorized to read, by term overlap, and reports
+what it found. It is retrieval, not analysis. It cannot reason, and it says so
+in the text of every answer it produces rather than only in this document.
+`OpenAiCompatibleProvider.complete()` exists as the seam for a real provider
+and **throws** — it is not implemented, and it does not pretend to be.
+
+| Capability | Status |
+| --- | --- |
+| `POST /noelia/ask` with cited, scope-limited answers | IMPLEMENTED |
+| Refusal to answer when no in-scope record supports it | IMPLEMENTED — returns `ungrounded=true`, no invented figures |
+| `POST /noelia/recommendations` with governance verdict | IMPLEMENTED |
+| Human review (`ACCEPTED`/`REJECTED`), final and non-reopenable | IMPLEMENTED |
+| AI action log including refusals | IMPLEMENTED |
+| Language model | **STUBBED** — deterministic retrieval, no model call |
+| Hosted provider integration | **DEFERRED** — the seam exists and throws |
+
+What Noelia **cannot** do, by construction: execute anything; read a record its
+principal cannot read; touch the waterfall at all; see
+`registration_number` or `legal_name`; have a refusal go unlogged; or have an
+accepted recommendation carry itself out. Accepting records agreement — a human
+then makes the change themselves, through the owning domain, under their own
+authorization and their own audit record.
+
+Configuration is off by default in production: `AI_ENABLED` defaults to
+`isProduction ? aiDriver !== 'stub' : true`, and startup throws only if an
+operator explicitly enables AI while the driver is still the stub.
+`config.ai.apiKeyRef` holds the *name* of an environment variable, never a key.
+
+---
+
+## 6.6 Operator console (`apps/beyu-console`) — PARTIALLY IMPLEMENTED
+
+A second front end: one `index.html`, one `server.mjs`, no build step, no
+dependencies, no `node_modules`. It exists alongside the Next.js app rather
+than instead of it — it runs anywhere Node runs, and the entire front end can
+be read in one sitting.
+
+It covers the same six live routes as the web app **plus a full Noelia screen**,
+which is currently the only UI for that domain. The other sixteen routes render
+an explicit "not implemented" panel.
+
+- **Same-origin only.** The browser calls `/api/v1/...` on the origin it loaded
+  from; `server.mjs` proxies to `BEYU_API_ORIGIN`. The API's address is never
+  sent to the browser, because an address the *server* can reach is not
+  necessarily one the *user's browser* can reach.
+- **It holds no authority.** No authorization logic of its own. Controls it
+  hides are hidden as a courtesy; the identical request from `curl` gets the
+  identical answer. Verified by injecting 403/401/500 and confirming the screen
+  states the refusal rather than rendering an empty table.
+- **It never touches a database.** It speaks only to `/api/v1`.
+- **No mock data anywhere.** Absent features say they are absent, in those
+  words, because on a governance console an empty table is a claim that the
+  records were checked and none exist.
+- **Session handling**: token in `sessionStorage` for the life of the tab; a
+  401 from any screen clears it and returns to sign-in rather than leaving the
+  operator clicking through a dead shell.
+
+**Not tested automatically.** Verification was done by loading the real page in
+a DOM against the live API and reading what rendered — all 22 routes, both
+Noelia question paths, the review flow, and adversarial probes for path
+traversal and XSS ([`TEST_REPORT.md`](TEST_REPORT.md) §13). That found three
+defects. There is no regression protection, because adding a test runner would
+mean adding the dependencies this app exists to avoid. That trade-off is
+deliberate and it is a real gap.
+
+---
+
+## 7. Not built
 
 ### Mobile application — DEFERRED
 `flutter/beyu` is an empty directory. When built it must be genuinely adaptive
 Flutter, never a WebView wrapper.
 
-### Noelia and HIVE services — DEFERRED
-The governance layer that constrains them is implemented and tested; the
-services themselves are not built. No model provider is integrated.
+### HIVE service — DEFERRED
+The governance layer that constrains it is implemented and tested; the service
+itself is not built. `ai.hive_tasks` and `ai.hive_subtasks` exist in the schema
+with no code behind them.
+
+Noelia is no longer deferred — see §6.5.
 
 ### Event streaming — PARTIALLY IMPLEMENTED
 The in-process event bus is fully functional, idempotent by event id, and
@@ -297,31 +437,53 @@ not been run.
 
 ---
 
-## 7. Verification
+## 8. Verification
 
 | Suite | Tests |
 | --- | --- |
-| `@beyu/types` | 13 |
+| `@beyu/types` | 30 |
 | `@beyu/auth` | 43 |
-| `@beyu/security` | 32 |
-| `@beyu/config` | 14 |
+| `@beyu/security` | 34 |
+| `@beyu/config` | 18 |
 | `@beyu/events` | 18 |
-| `@beyu/api` | 87 |
-| **Total** | **207 passing** |
+| `@beyu/api` | 149 |
+| **Total** | **292 passing** |
 
-Typecheck passes across all 11 projects. Lint reports zero errors.
+Typecheck passes across all 12 projects. Lint reports zero errors (21 warnings).
+
+Neither front end has automated tests. Both were verified by running them
+against the live API and walking every route with a real signed-in session —
+the console additionally under injected 403/401/500 responses, a hostile API
+payload, and path-traversal probes. That is weaker than a test suite and is the
+most significant gap in this verification. Five defects it caught are described
+in [`TEST_REPORT.md`](TEST_REPORT.md) §9 and §13.
 
 Tests are aimed at invariants rather than implementation details: that
 tampering breaks the chain, that a role cannot escape its tenant, that a
 waterfall conserves its inflow, that no AI mutation is ever auto-approved.
 
-Four test failures during development turned out to be faulty assumptions in
-the tests. Four were genuine product defects, all fixed: the audit-mutability
-privilege escalation, an unreachable hierarchy guard that hid the
-sister-organization explanation, a data directory that was not created
-recursively so a fresh clone could not start, and an audit hash that treated an
+Most test failures during development turned out to be faulty assumptions in
+the tests. Several were genuine product defects, all fixed: the
+audit-mutability privilege escalation, an unreachable hierarchy guard that hid
+the sister-organization explanation, a data directory that was not created
+recursively so a fresh clone could not start, an audit hash that treated an
 omitted nullable field differently from an explicit null and so reported
-untouched records as tampered.
+untouched records as tampered, and an audit `reason` that was stored but not
+hashed, so it could be rewritten without breaking the chain.
+
+Running the web application against the live API found two more that no test
+had caught, both instructive:
+
+- The client declared the organization node's discriminator as `nodeType` while
+  the API returns `type`. **Typecheck passed before and after the fix** — the
+  hand-written interface was simply fiction, and TypeScript cannot check a
+  claim about a wire format. Every client contract has since been re-derived
+  from a recorded response.
+- `GET /audit` returns the *oldest* N records, because verification walks the
+  chain forwards. A screen labelled "most recent activity" was therefore
+  showing the oldest, and a client-side sort over the wrong page made it look
+  deliberate. The endpoint now takes `order=desc`, covered by tests in
+  `test/audit-read.e2e.test.ts`.
 
 Beyond the automated suite, the API was exercised as a running HTTP server
 against forged tokens, injection payloads, malformed bodies and concurrent
@@ -330,17 +492,29 @@ writes. The results are recorded in
 
 ---
 
-## 8. Honest assessment
+## 9. Honest assessment
 
 **What can be relied on.** The data model and its invariants, the authorization
 engine, the audit chain and the waterfall engine are the parts that would be
 most expensive to get wrong later, and they are built, tested and — for the
 database invariants and the audit chain — proven against a live PostgreSQL.
 
-**What cannot.** There is no usable application yet. Without authentication
-endpoints and a frontend, nobody can log in. The next milestone should be
-authentication, then the organization and ownership endpoints, then the web
-shell.
+**What cannot.** Most of the product surface. An operator can sign in and
+inspect the organization hierarchy, the attached-OS registry and the audit
+trail, and can use Noelia — that is seven routes out of twenty-two in the
+console, six of twenty-one in the web app. The rest are placeholders because
+the endpoints behind them do not exist: ownership, governance, strategy, risk,
+compliance, capital, waterfall, documents, workflow, notifications and
+reporting are schema, contracts and — for the waterfall — a tested engine,
+with no HTTP surface. The next milestone is those endpoints, in roughly that
+order, followed by the screens that consume them.
+
+**What is real about Noelia, precisely.** The governance is real and tested;
+the model is a deterministic stub that retrieves rather than reasons. Do not
+read "Noelia AI — IMPLEMENTED" as "an AI analyst is running here". Read §6.5.
+
+Neither front end has automated tests, which is why five of the seven defects
+found this pass reached a running application before anyone noticed them.
 
 **What is not real.** The Kafka driver, Redis, S3 and every external
 integration. They are labelled STUBBED and fail loudly. Nothing in this

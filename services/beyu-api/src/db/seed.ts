@@ -73,19 +73,35 @@ const SECTORS: Array<{ code: string; name: string; description: string }> = [
   { code: 'PHILANTHROPY', name: 'Philanthropy', description: 'Foundation programmes. Operations belong to Foundation OS.' },
 ];
 
-/** The OS registry. BEYU OS integrates with these; it never absorbs them. */
+/**
+ * The OS registry. BEYU OS integrates with these; it never absorbs them.
+ *
+ * Every attached OS is seeded with NO capabilities and status REGISTERED.
+ * That is deliberate: isolation is the default, and every capability an OS
+ * holds must be an explicit, audited grant made through the API. Seeding a
+ * capability would hand out access that nobody approved.
+ *
+ * `offers` records what the OS provides to ITS OWN sector. It is descriptive
+ * documentation of the federation, not a grant, and it is deliberately not
+ * written to the `capabilities` column — that column means "what BEYU OS has
+ * granted this OS", and conflating the two is how an external system ends up
+ * with access nobody reviewed.
+ */
 const OS_REGISTRY: Array<{
   os_id: string;
   name: string;
   sector_code: string | null;
+  attachment_kind: 'CORE' | 'SECTOR_OS' | 'FOUNDATION_OS';
   is_core: boolean;
-  capabilities: string[];
+  offers: string[];
 }> = [
-  { os_id: 'beyu-os', name: 'BEYU OS', sector_code: null, is_core: true, capabilities: ['ORGANIZATION', 'GOVERNANCE', 'STRATEGY', 'RISK', 'COMPLIANCE', 'CAPITAL', 'WATERFALL'] },
-  { os_id: 'health-os', name: 'Health OS', sector_code: 'HEALTH', is_core: false, capabilities: ['CLINICAL_OPERATIONS'] },
-  { os_id: 'finance-os', name: 'Finance OS', sector_code: 'FINANCE', is_core: false, capabilities: ['TRANSACTION_EXECUTION', 'TREASURY', 'ACCOUNTING'] },
-  { os_id: 'agriculture-os', name: 'Agriculture OS', sector_code: 'AGRICULTURE', is_core: false, capabilities: ['FARM_OPERATIONS'] },
-  { os_id: 'foundation-os', name: 'FOUNDATION OS', sector_code: 'PHILANTHROPY', is_core: false, capabilities: ['GRANTS', 'PROGRAMMES', 'DONOR_MANAGEMENT'] },
+  { os_id: 'beyu-os', name: 'BEYU OS', sector_code: null, attachment_kind: 'CORE', is_core: true, offers: ['ORGANIZATION', 'GOVERNANCE', 'STRATEGY', 'RISK', 'COMPLIANCE', 'CAPITAL', 'WATERFALL'] },
+  { os_id: 'health-os', name: 'Health OS', sector_code: 'HEALTH', attachment_kind: 'SECTOR_OS', is_core: false, offers: ['CLINICAL_OPERATIONS'] },
+  { os_id: 'finance-os', name: 'Finance OS', sector_code: 'FINANCE', attachment_kind: 'SECTOR_OS', is_core: false, offers: ['TRANSACTION_EXECUTION', 'TREASURY', 'ACCOUNTING'] },
+  { os_id: 'agriculture-os', name: 'Agriculture OS', sector_code: 'AGRICULTURE', attachment_kind: 'SECTOR_OS', is_core: false, offers: ['FARM_OPERATIONS'] },
+  // The Foundation is a sister organization, not a sector of the holding
+  // company, so FOUNDATION OS carries no sector_code.
+  { os_id: 'foundation-os', name: 'FOUNDATION OS', sector_code: null, attachment_kind: 'FOUNDATION_OS', is_core: false, offers: ['GRANTS', 'PROGRAMMES', 'DONOR_MANAGEMENT'] },
 ];
 
 export interface SeedResult {
@@ -132,10 +148,10 @@ export async function seed(
   for (const os of OS_REGISTRY) {
     await db.query(
       `INSERT INTO organization.os_registry
-         (os_id, name, sector_code, is_core, capabilities, status)
-       VALUES ($1, $2, $3, $4, $5, 'REGISTERED')
+         (os_id, name, sector_code, attachment_kind, is_core, capabilities, status)
+       VALUES ($1, $2, $3, $4, $5, '{}', 'REGISTERED')
        ON CONFLICT (os_id) DO NOTHING`,
-      [os.os_id, os.name, os.sector_code, os.is_core, os.capabilities],
+      [os.os_id, os.name, os.sector_code, os.attachment_kind, os.is_core],
     );
   }
   created.push(`${OS_REGISTRY.length} registered operating systems`);

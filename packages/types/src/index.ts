@@ -7,6 +7,7 @@
  */
 
 export * from './organization';
+export * from './os-registry';
 export * from './authorization';
 export * from './waterfall';
 export * from './domain';

@@ -33,6 +33,7 @@ export interface AuditHashInput {
   resourceType: string;
   resourceId: string | null;
   outcome: string;
+  reason?: string | null;
   previousState: Record<string, unknown> | null;
   newState: Record<string, unknown> | null;
   occurredAt: string;
@@ -68,6 +69,10 @@ export function computeAuditHash(input: AuditHashInput): string {
     resourceType: input.resourceType,
     resourceId: nullish(input.resourceId),
     outcome: input.outcome,
+    // The justification is part of the record. A capability grant whose stated
+    // reason can be rewritten later without breaking the chain is a record
+    // that cannot be relied on in a review.
+    reason: nullish(input.reason),
     previousState: nullish(input.previousState),
     newState: nullish(input.newState),
     occurredAt: input.occurredAt,
@@ -117,6 +122,7 @@ export function verifyAuditChain(events: AuditEvent[]): AuditChainVerification {
       resourceType: String(event.resourceType),
       resourceId: event.resourceId,
       outcome: event.outcome,
+      reason: event.reason,
       previousState: event.previousState,
       newState: event.newState,
       occurredAt: event.occurredAt,

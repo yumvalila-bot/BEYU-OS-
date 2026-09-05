@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Light and dark are the same set of semantic tokens with different values.
+ * Components never reference navy-900 or gold-500 directly; they use
+ * `surface`, `ink`, `accent` and so on, which is what makes the mode switch a
+ * single class on <html> instead of a conditional in every component.
+ */
+:root {
+  --surface: 248 250 252;
+  --surface-raised: 255 255 255;
+  --surface-sunken: 241 245 249;
+  --border: 214 223 235;
+  --ink: 10 20 40;
+  --ink-muted: 71 85 105;
+  --ink-subtle: 122 138 160;
+  --accent: 168 128 31;
+  --accent-ink: 255 255 255;
+  --positive: 22 122 84;
+  --caution: 176 122 12;
+  --critical: 178 43 43;
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.dark {
+  --surface: 5 11 24;
+  --surface-raised: 15 30 58;
+  --surface-sunken: 10 20 40;
+  --border: 30 54 97;
+  --ink: 233 239 248;
+  --ink-muted: 160 176 200;
+  --ink-subtle: 118 137 168;
+  --accent: 201 162 39;
+  --accent-ink: 5 11 24;
+  --positive: 52 168 122;
+  --caution: 217 182 65;
+  --critical: 232 106 106;
+}
+
+html {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface text-ink antialiased;
+}
+
+/* Visible focus everywhere. A control plane gets operated by keyboard. */
+:focus-visible {
+  @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-surface;
+}
+
+::selection {
+  @apply bg-accent/25;
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-border bg-surface-raised shadow-panel;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2
+      text-sm font-medium transition-colors disabled:cursor-not-allowed
+      disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply btn bg-accent text-accent-ink hover:bg-gold-600;
+  }
+
+  .btn-secondary {
+    @apply btn border border-border bg-surface-raised text-ink
+      hover:bg-surface-sunken;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-border bg-surface-raised px-3 py-2
+      text-sm text-ink placeholder:text-ink-subtle;
+  }
+
+  .label {
+    @apply mb-1.5 block text-sm font-medium text-ink-muted;
+  }
+}

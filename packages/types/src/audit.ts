@@ -26,6 +26,14 @@ export interface AuditEvent {
   resourceType: ResourceType | string;
   resourceId: string | null;
   outcome: AuditOutcome;
+  /**
+   * Why the actor says they did it.
+   *
+   * Covered by the entry hash like every other field: the stated
+   * justification for a decision is part of the record, and a reason that
+   * could be revised after the fact would be worth nothing in a review.
+   */
+  reason: string | null;
   /** JSON snapshot before the change. Null for reads/creates. */
   previousState: Record<string, unknown> | null;
   /** JSON snapshot after the change. Null for reads/deletes. */

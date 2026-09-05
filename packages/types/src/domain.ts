@@ -314,47 +314,12 @@ export interface CapitalAllocation {
 /* OS Registry (spec §4, §71)                                          */
 /* ------------------------------------------------------------------ */
 
-export enum OsRegistrationStatus {
-  Registered = 'REGISTERED',
-  Configuring = 'CONFIGURING',
-  SecurityValidation = 'SECURITY_VALIDATION',
-  Active = 'ACTIVE',
-  Suspended = 'SUSPENDED',
-  Retired = 'RETIRED',
-}
-
-export enum OsHealthStatus {
-  Healthy = 'HEALTHY',
-  Degraded = 'DEGRADED',
-  Unreachable = 'UNREACHABLE',
-  Unknown = 'UNKNOWN',
-}
-
-/** Registration record for a Sector OS or the Foundation OS (spec §4). */
-export interface OsRegistration {
-  id: string;
-  osId: string;
-  name: string;
-  sectorCode: string | null;
-  version: string;
-  status: OsRegistrationStatus;
-  /** ISO country codes where the OS is available. */
-  countryAvailability: string[];
-  /** Sector LLC / Foundation that owns the OS. */
-  ownerEntityId: string | null;
-  apiEndpoint: string | null;
-  eventSubscriptions: string[];
-  capabilities: string[];
-  complianceProfileId: string | null;
-  integrationStatus: 'NOT_CONFIGURED' | 'CONFIGURED' | 'VERIFIED' | 'FAILED';
-  healthStatus: OsHealthStatus;
-  lastHealthCheckAt?: string | null;
-  /** Data-sharing contract governing what this OS may expose to BEYU OS. */
-  dataSharingPolicyId?: string | null;
-  isCore: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
+/*
+ * OS registration types live in `os-registry.ts`, which is the single source
+ * of truth for the federation seam: lifecycle, capability grants and the
+ * deny list. They were previously declared here as well; two definitions of
+ * the same concept is how they drift apart.
+ */
 
 /* ------------------------------------------------------------------ */
 /* Documents & Workflow (spec §35, §36)                                */

@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>BEYU OS Console</title>
+<!--
+  BEYU OS Console — single-file operator front end (spec §21, §41).
+
+  A dependency-free alternative to apps/beyu-web. No framework, no build step,
+  no external requests: everything this page needs is in this file.
+
+  Two rules govern everything below:
+
+    1. This page holds no authority. Every list it renders and every action it
+       offers is decided by the API. Hiding a button is a courtesy to the
+       operator, never a control — the same call from curl gets the same
+       answer (spec §7, §54).
+    2. It never touches a database. It speaks only to /api/v1, same-origin,
+       through the proxy in server.mjs (spec §7).
+
+  Where a screen is not built, it says so and shows nothing. There is no mock
+  data anywhere in this file; a plausible-looking number on a governance
+  console is worse than an empty one.
+-->
+<style>
+  /* Tokens mirror apps/beyu-web/src/app/globals.css so the two front ends are
+     visibly the same product. Light and dark are one class swap on <html>. */
+  :root {
+    --surface: 248 250 252;  --surface-raised: 255 255 255; --surface-sunken: 241 245 249;
+    --border: 214 223 235;   --ink: 10 20 40;               --ink-muted: 71 85 105;
+    --ink-subtle: 122 138 160; --accent: 168 128 31;        --accent-ink: 255 255 255;
+    --positive: 22 122 84;   --caution: 176 122 12;         --critical: 178 43 43;
+    color-scheme: light;
+  }
+  html.dark {
+    --surface: 5 11 24;      --surface-raised: 15 30 58;    --surface-sunken: 10 20 40;
+    --border: 30 54 97;      --ink: 233 239 248;            --ink-muted: 160 176 200;
+    --ink-subtle: 118 137 168; --accent: 201 162 39;        --accent-ink: 5 11 24;
+    --positive: 52 168 122;  --caution: 217 182 65;         --critical: 232 106 106;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: rgb(var(--surface));
+    color: rgb(var(--ink));
+    font: 15px/1.55 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  /* A control plane gets operated by keyboard. */
+  :focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; }
+  a { color: inherit; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+
+  .app { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+  @media (max-width: 900px) { .app { grid-template-columns: 1fr; } .sidebar { display: none; } }
+
+  /* ---- sidebar ---- */
+  .sidebar {
+    background: rgb(var(--surface-sunken));
+    border-right: 1px solid rgb(var(--border));
+    padding: 20px 14px;
+    display: flex; flex-direction: column; gap: 4px;
+    position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 18px; }
+  .brand-mark {
+    width: 34px; height: 34px; border-radius: 9px; flex: none;
+    background: linear-gradient(135deg, rgb(var(--accent)), rgb(var(--accent) / 0.55));
+    color: rgb(var(--accent-ink));
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 15px; letter-spacing: 0.02em;
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.25; }
+  .brand-text strong { font-size: 14.5px; letter-spacing: 0.04em; }
+  .brand-text span { font-size: 11px; color: rgb(var(--ink-subtle)); letter-spacing: 0.06em; text-transform: uppercase; }
+
+  .nav-group { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.09em;
+    color: rgb(var(--ink-subtle)); padding: 14px 8px 5px; }
+  .nav-item {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 7px 10px; border-radius: 8px; cursor: pointer;
+    color: rgb(var(--ink-muted)); font-size: 13.5px; text-decoration: none;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { background: rgb(var(--surface-raised)); color: rgb(var(--ink)); }
+  .nav-item.active {
+    background: rgb(var(--surface-raised)); color: rgb(var(--ink));
+    border-color: rgb(var(--border)); font-weight: 600;
+  }
+  .nav-item.active::before {
+    content: ''; position: absolute; left: 14px; width: 3px; height: 18px;
+    border-radius: 2px; background: rgb(var(--accent));
+  }
+  .nav-item { position: relative; }
+  .nav-dot { width: 6px; height: 6px; border-radius: 50%; background: rgb(var(--ink-subtle) / 0.5); flex: none; }
+  .nav-dot.live { background: rgb(var(--positive)); }
+
+  /* ---- main ---- */
+  .main { display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 13px 26px; border-bottom: 1px solid rgb(var(--border));
+    background: rgb(var(--surface-raised)); position: sticky; top: 0; z-index: 10;
+  }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 600; letter-spacing: 0.01em; }
+  .topbar .spacer { flex: 1; }
+  .content { padding: 26px; max-width: 1180px; width: 100%; }
+
+  .btn {
+    font: inherit; font-size: 13.5px; padding: 7px 14px; border-radius: 8px;
+    border: 1px solid rgb(var(--border)); background: rgb(var(--surface-raised));
+    color: rgb(var(--ink)); cursor: pointer;
+  }
+  .btn:hover:not(:disabled) { border-color: rgb(var(--accent) / 0.6); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-primary {
+    background: rgb(var(--accent)); color: rgb(var(--accent-ink));
+    border-color: rgb(var(--accent)); font-weight: 600;
+  }
+  .btn-sm { padding: 4px 10px; font-size: 12.5px; }
+  .btn-icon { padding: 6px 9px; }
+
+  .card {
+    background: rgb(var(--surface-raised)); border: 1px solid rgb(var(--border));
+    border-radius: 13px; padding: 20px; margin-bottom: 18px;
+  }
+  .card > h2 { margin: 0 0 4px; font-size: 14px; font-weight: 650; letter-spacing: 0.01em; }
+  .card > h2 + p.sub { margin: 0 0 16px; }
+  p.sub { color: rgb(var(--ink-muted)); font-size: 13px; margin: 0 0 14px; }
+
+  .grid { display: grid; gap: 14px; }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+  .stat { background: rgb(var(--surface-raised)); border: 1px solid rgb(var(--border));
+    border-radius: 12px; padding: 15px 17px; }
+  .stat .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: rgb(var(--ink-subtle)); }
+  .stat .value { font-size: 25px; font-weight: 660; margin-top: 5px; letter-spacing: -0.01em; }
+  .stat .note { font-size: 12px; color: rgb(var(--ink-muted)); margin-top: 3px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid rgb(var(--border)); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    color: rgb(var(--ink-subtle)); font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; }
+  .table-wrap { overflow-x: auto; }
+
+  .pill {
+    display: inline-block; padding: 2px 9px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.03em;
+    border: 1px solid transparent; white-space: nowrap;
+  }
+  .pill-neutral { background: rgb(var(--ink-subtle) / 0.14); color: rgb(var(--ink-muted)); }
+  .pill-positive { background: rgb(var(--positive) / 0.16); color: rgb(var(--positive)); }
+  .pill-caution { background: rgb(var(--caution) / 0.18); color: rgb(var(--caution)); }
+  .pill-critical { background: rgb(var(--critical) / 0.16); color: rgb(var(--critical)); }
+  .pill-accent { background: rgb(var(--accent) / 0.18); color: rgb(var(--accent)); }
+
+  input, textarea, select {
+    font: inherit; width: 100%; padding: 9px 11px; border-radius: 9px;
+    border: 1px solid rgb(var(--border)); background: rgb(var(--surface));
+    color: rgb(var(--ink));
+  }
+  textarea { resize: vertical; min-height: 74px; }
+  label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 5px;
+    color: rgb(var(--ink-muted)); }
+  .field { margin-bottom: 13px; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; }
+  .row > * { flex: 1; min-width: 160px; }
+
+  .banner { padding: 11px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 15px;
+    border: 1px solid; display: flex; gap: 9px; align-items: flex-start; }
+  .banner-error { background: rgb(var(--critical) / 0.1); border-color: rgb(var(--critical) / 0.4); }
+  .banner-info { background: rgb(var(--accent) / 0.09); border-color: rgb(var(--accent) / 0.35); }
+  .banner-warn { background: rgb(var(--caution) / 0.11); border-color: rgb(var(--caution) / 0.4); }
+
+  .empty { padding: 34px 20px; text-align: center; color: rgb(var(--ink-subtle)); font-size: 13.5px; }
+
+  /* ---- login ---- */
+  .login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 24px;
+    background: rgb(var(--surface-sunken)); }
+  .login-card { width: 100%; max-width: 400px; background: rgb(var(--surface-raised));
+    border: 1px solid rgb(var(--border)); border-radius: 15px; padding: 30px; }
+
+  /* ---- noelia ---- */
+  .msg { padding: 13px 15px; border-radius: 11px; margin-bottom: 11px; max-width: 88%; }
+  .msg-user { background: rgb(var(--accent) / 0.13); margin-left: auto;
+    border: 1px solid rgb(var(--accent) / 0.28); }
+  .msg-assistant { background: rgb(var(--surface-sunken)); border: 1px solid rgb(var(--border)); }
+  .msg .who { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em;
+    color: rgb(var(--ink-subtle)); margin-bottom: 5px; }
+  .msg .body { white-space: pre-wrap; font-size: 13.5px; }
+  .citations { margin-top: 11px; padding-top: 10px; border-top: 1px dashed rgb(var(--border)); }
+  .citation { font-size: 12px; color: rgb(var(--ink-muted)); padding: 3px 0; }
+  .citation .ref { color: rgb(var(--accent)); }
+
+  .provenance {
+    font-size: 11.5px; color: rgb(var(--ink-muted)); margin-top: 9px;
+    padding: 7px 11px; border-radius: 8px; background: rgb(var(--caution) / 0.1);
+    border: 1px solid rgb(var(--caution) / 0.3);
+  }
+
+  .rec { border: 1px solid rgb(var(--border)); border-radius: 11px; padding: 15px; margin-bottom: 12px;
+    background: rgb(var(--surface-raised)); }
+  .rec-head { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 7px; flex-wrap: wrap; }
+  .rec-head h3 { margin: 0; font-size: 14px; font-weight: 640; flex: 1; min-width: 200px; }
+  .rec-meta { font-size: 12px; color: rgb(var(--ink-subtle)); margin-top: 8px; }
+  pre.json { background: rgb(var(--surface-sunken)); border: 1px solid rgb(var(--border));
+    border-radius: 8px; padding: 11px; overflow-x: auto; font-size: 12px; margin: 9px 0 0; }
+
+  .hidden { display: none !important; }
+  .spin { display: inline-block; width: 13px; height: 13px; border: 2px solid rgb(var(--ink-subtle) / 0.3);
+    border-top-color: rgb(var(--accent)); border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div id="login" class="login-wrap">
+  <form class="login-card" id="login-form" autocomplete="on">
+    <div class="brand" style="padding-left:0">
+      <div class="brand-mark">B</div>
+      <div class="brand-text">
+        <strong>BEYU OS</strong>
+        <span>Family Trust Control Plane</span>
+      </div>
+    </div>
+    <p class="sub">Sign in to continue. Credentials are verified by the BEYU API; this page never sees a password hash and holds no session of its own.</p>
+    <div id="login-error" class="banner banner-error hidden"></div>
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" autocomplete="username" required>
+    </div>
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+    </div>
+    <button class="btn btn-primary" style="width:100%" type="submit" id="login-btn">Sign in</button>
+  </form>
+</div>
+
+<div id="app" class="app hidden">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">B</div>
+      <div class="brand-text">
+        <strong>BEYU OS</strong>
+        <span>Control Plane</span>
+      </div>
+    </div>
+    <nav id="nav"></nav>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h1 id="page-title">Dashboard</h1>
+      <div class="spacer"></div>
+      <span id="who" class="mono" style="font-size:12px;color:rgb(var(--ink-muted))"></span>
+      <button class="btn btn-icon" id="theme-btn" title="Toggle light / dark">◐</button>
+      <button class="btn btn-sm" id="logout-btn">Sign out</button>
+    </header>
+    <main class="content" id="view"></main>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ------------------------------------------------------------------ *
+ * API client
+ *
+ * Same-origin only. The path is relative, so the browser talks to
+ * whatever host served this page and server.mjs forwards it onward.
+ * Hard-coding an API origin here would break the moment the console is
+ * behind a proxy, a tunnel or a port forward.
+ * ------------------------------------------------------------------ */
+
+const TOKEN_KEY = 'beyu.console.token';
+
+const state = {
+  token: sessionStorage.getItem(TOKEN_KEY) || null,
+  user: null,
+  route: 'dashboard',
+  conversationId: null,
+  transcript: [],
+};
+
+/** Throws an Error carrying the API's own message and status. */
+async function api(method, path, body) {
+  const res = await fetch(`/api/v1${path}`, {
+    method,
+    headers: {
+      accept: 'application/json',
+      ...(body ? { 'content-type': 'application/json' } : {}),
+      ...(state.token ? { authorization: `Bearer ${state.token}` } : {}),
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+
+  const text = await res.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON error page */ }
+
+  if (!res.ok) {
+    // The API's envelope is { error: { status, code, message, ... } }.
+    const err = new Error(data?.error?.message || data?.message || `${res.status} ${res.statusText}`);
+    err.status = res.status;
+    err.code = data?.error?.code;
+
+    // An expired or rejected token makes every subsequent screen fail. Leaving
+    // the operator inside a shell where nothing loads invites them to read the
+    // blanks as data. Drop the dead token and send them back to sign in.
+    // Login itself is excluded: a rejected password is an answer, not an
+    // expiry, and is reported in place.
+    if (res.status === 401 && path !== '/auth/login') {
+      showLogin('Your session has expired. Sign in again.');
+    }
+    throw err;
+  }
+  return data;
+}
+
+/* ------------------------------------------------------------------ *
+ * Rendering helpers
+ * ------------------------------------------------------------------ */
+
+/** Escapes text for interpolation. Everything from the API goes through this. */
+function esc(value) {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+}
+
+function when(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? esc(iso) : d.toLocaleString();
+}
+
+const PILL = {
+  ACTIVE: 'positive', PERMITTED: 'positive', ACCEPTED: 'positive', VERIFIED: 'positive',
+  PENDING_REVIEW: 'caution', REQUIRES_HUMAN_APPROVAL: 'caution', SUSPENDED: 'caution',
+  SECURITY_VALIDATION: 'caution', HIGH: 'caution',
+  DENIED: 'critical', REJECTED: 'critical', CRITICAL: 'critical', RETIRED: 'critical',
+  REGISTERED: 'accent', CONFIGURING: 'accent',
+};
+function pill(value) {
+  if (!value) return '<span class="pill pill-neutral">—</span>';
+  return `<span class="pill pill-${PILL[value] || 'neutral'}">${esc(String(value).replaceAll('_', ' '))}</span>`;
+}
+
+function loading(label = 'Loading') {
+  return `<div class="empty"><span class="spin"></span> &nbsp;${esc(label)}…</div>`;
+}
+
+function errorBanner(error) {
+  const hint = error.status === 403
+    ? ' Your roles do not carry this permission. The API refused the request; this console cannot override that.'
+    : error.status === 401 ? ' Your session has expired.'
+    : '';
+  return `<div class="banner banner-error"><div><strong>Request failed.</strong> ${esc(error.message)}${hint}</div></div>`;
+}
+
+/**
+ * Every screen that is not built renders this. It states plainly that the
+ * feature is absent rather than showing an empty table that could be mistaken
+ * for "no records" — a governance console must never imply it has looked.
+ */
+function notBuilt(title, note) {
+  return `
+    <div class="card">
+      <h2>${esc(title)}</h2>
+      <p class="sub">${esc(note)}</p>
+      <div class="banner banner-warn">
+        <div>
+          <strong>Not implemented.</strong> This screen has no backend behind it yet.
+          Nothing is shown because nothing has been read — this is an absent feature,
+          not an empty result set.
+        </div>
+      </div>
+    </div>`;
+}
+
+/* ------------------------------------------------------------------ *
+ * Navigation
+ *
+ * `live` marks the routes with a real API behind them. The rest render
+ * notBuilt(). Keeping the full route list visible is deliberate: it shows
+ * the shape of the system and what remains to be built.
+ * ------------------------------------------------------------------ */
+
+const ROUTES = [
+  { group: 'Overview' },
+  { id: 'dashboard',     label: 'Dashboard',      live: true },
+  { id: 'noelia',        label: 'Noelia AI',      live: true },
+  { group: 'Structure' },
+  { id: 'organization',  label: 'Organization',   live: true },
+  { id: 'ownership',     label: 'Ownership' },
+  { id: 'governance',    label: 'Governance' },
+  { id: 'countries',     label: 'Countries' },
+  { id: 'sectors',       label: 'Sectors' },
+  { id: 'tenants',       label: 'Tenants' },
+  { group: 'Direction' },
+  { id: 'strategy',      label: 'Strategy' },
+  { id: 'risks',         label: 'Risks' },
+  { id: 'compliance',    label: 'Compliance' },
+  { group: 'Capital' },
+  { id: 'capital',       label: 'Capital' },
+  { id: 'waterfall',     label: 'Waterfall' },
+  { group: 'Operations' },
+  { id: 'documents',     label: 'Documents' },
+  { id: 'workflows',     label: 'Workflows' },
+  { id: 'reports',       label: 'Reports' },
+  { id: 'notifications', label: 'Notifications' },
+  { group: 'Platform' },
+  { id: 'integrations',  label: 'OS Registry',    live: true },
+  { id: 'audit',         label: 'Audit',          live: true },
+  { id: 'settings',      label: 'Settings',       live: true },
+];
+
+function renderNav() {
+  document.getElementById('nav').innerHTML = ROUTES.map((r) => {
+    if (r.group) return `<div class="nav-group">${esc(r.group)}</div>`;
+    return `<a class="nav-item ${state.route === r.id ? 'active' : ''}" href="#${r.id}">
+      <span>${esc(r.label)}</span>
+      <span class="nav-dot ${r.live ? 'live' : ''}" title="${r.live ? 'Live data' : 'Not implemented'}"></span>
+    </a>`;
+  }).join('');
+}
+
+/* ------------------------------------------------------------------ *
+ * Screens
+ * ------------------------------------------------------------------ */
+
+const view = () => document.getElementById('view');
+
+async function screenDashboard() {
+  view().innerHTML = loading();
+  try {
+    const [orgs, registry, verify] = await Promise.all([
+      api('GET', '/organizations?limit=200'),
+      api('GET', '/os-registry?limit=200'),
+      api('GET', '/audit/verify').catch((e) => ({ error: e })),
+    ]);
+
+    const byType = {};
+    for (const node of orgs.items) byType[node.type] = (byType[node.type] || 0) + 1;
+
+    const chainOk = verify && !verify.error && (verify.valid ?? verify.ok);
+    const chainCell = verify?.error
+      ? `<div class="stat"><div class="label">Audit chain</div>
+           <div class="value" style="font-size:16px">Not readable</div>
+           <div class="note">${esc(verify.error.message)}</div></div>`
+      : `<div class="stat"><div class="label">Audit chain</div>
+           <div class="value">${chainOk ? 'Intact' : 'BROKEN'}</div>
+           <div class="note">${esc(verify.checkedCount ?? 0)} entries verified</div></div>`;
+
+    view().innerHTML = `
+      <div class="grid grid-3" style="margin-bottom:20px">
+        <div class="stat">
+          <div class="label">Organization nodes</div>
+          <div class="value">${orgs.total}</div>
+          <div class="note">${Object.entries(byType).map(([t, n]) => `${n} ${t.toLowerCase().replaceAll('_', ' ')}`).join(' · ') || '—'}</div>
+        </div>
+        <div class="stat">
+          <div class="label">Registered operating systems</div>
+          <div class="value">${registry.total}</div>
+          <div class="note">${registry.items.filter((o) => o.isCore).length} core · ${registry.items.filter((o) => !o.isCore).length} attached</div>
+        </div>
+        ${chainCell}
+      </div>
+
+      <div class="card">
+        <h2>Federated operating systems</h2>
+        <p class="sub">BEYU OS ends at the Sector LLC boundary. Each system below runs independently and integrates through versioned contracts — never through shared database access.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>System</th><th>Attachment</th><th>Sector</th><th>Status</th></tr></thead>
+          <tbody>${registry.items.map((os) => `
+            <tr>
+              <td><strong>${esc(os.name)}</strong>${os.isCore ? ' <span class="pill pill-accent">CORE</span>' : ''}</td>
+              <td>${esc(os.attachmentKind)}</td>
+              <td>${esc(os.sectorCode || '—')}</td>
+              <td>${pill(os.status)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+  } catch (error) {
+    view().innerHTML = errorBanner(error);
+  }
+}
+
+async function screenOrganization() {
+  view().innerHTML = loading();
+  try {
+    const orgs = await api('GET', '/organizations?limit=200');
+
+    // Depth is supplied by the API; the console only indents by it.
+    view().innerHTML = `
+      <div class="card">
+        <h2>Organizational hierarchy</h2>
+        <p class="sub">BEYU FAMILY TRUST and everything beneath it. BEYU FOUNDATION is a sister organization to BEYU HOLDING COMPANY, not a subsidiary.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Entity</th><th>Type</th><th>Country</th><th>Status</th></tr></thead>
+          <tbody>${orgs.items.map((n) => `
+            <tr>
+              <td style="padding-left:${11 + (n.depth || 0) * 22}px">
+                ${(n.depth || 0) > 0 ? '<span style="color:rgb(var(--ink-subtle))">└ </span>' : ''}<strong>${esc(n.name)}</strong>
+              </td>
+              <td><span class="pill pill-neutral">${esc(String(n.type).replaceAll('_', ' '))}</span></td>
+              <td>${esc(n.countryCode || '—')}</td>
+              <td>${pill(n.status)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+  } catch (error) {
+    view().innerHTML = errorBanner(error);
+  }
+}
+
+async function screenIntegrations() {
+  view().innerHTML = loading();
+  try {
+    const registry = await api('GET', '/os-registry?limit=200');
+    view().innerHTML = `
+      <div class="card">
+        <h2>OS registry</h2>
+        <p class="sub">Every operating system that may integrate with BEYU OS, and the capabilities each has been granted. Capabilities on the never-grantable list cannot be assigned at any privilege level.</p>
+        <div class="table-wrap"><table>
+          <thead><tr><th>System</th><th>Kind</th><th>Status</th><th>Capabilities</th></tr></thead>
+          <tbody>${registry.items.map((os) => `
+            <tr>
+              <td><strong>${esc(os.name)}</strong><br><span class="mono" style="color:rgb(var(--ink-subtle))">${esc(os.osId)}</span></td>
+              <td>${esc(os.attachmentKind)}</td>
+              <td>${pill(os.status)}</td>
+              <td>${(os.capabilities && os.capabilities.length)
+                    ? os.capabilities.map((c) => `<span class="pill pill-neutral">${esc(c)}</span>`).join(' ')
+                    : '<span style="color:rgb(var(--ink-subtle))">none granted</span>'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+  } catch (error) {
+    view().innerHTML = errorBanner(error);
+  }
+}
+
+async function screenAudit() {
+  view().innerHTML = loading();
+  try {
+    // order=desc: the endpoint returns the OLDEST entries by default, so a
+    // page labelled "most recent" has to ask for them explicitly.
+    const [log, verify] = await Promise.all([
+      api('GET', '/audit?limit=50&order=desc'),
+      api('GET', '/audit/verify').catch((e) => ({ error: e })),
+    ]);
+
+    const banner = verify?.error
+      ? `<div class="banner banner-warn"><div>Chain verification unavailable: ${esc(verify.error.message)}</div></div>`
+      : (verify.valid ?? verify.ok)
+        ? `<div class="banner banner-info"><div><strong>Chain intact.</strong> Every entry hashes onto its predecessor.</div></div>`
+        : `<div class="banner banner-error"><div><strong>Chain broken.</strong> The audit log has been altered.</div></div>`;
+
+    view().innerHTML = `
+      <div class="card">
+        <h2>Audit log</h2>
+        <p class="sub">Append-only and hash-chained. The 50 most recent entries.</p>
+        ${banner}
+        <div class="table-wrap"><table>
+          <thead><tr><th>#</th><th>When</th><th>Action</th><th>Resource</th><th>Outcome</th></tr></thead>
+          <tbody>${log.items.map((e) => `
+            <tr>
+              <td class="mono">${esc(e.sequence)}</td>
+              <td>${when(e.occurredAt || e.createdAt)}</td>
+              <td>${esc(e.action)}</td>
+              <td>${esc(e.resourceType)}</td>
+              <td>${pill(e.outcome)}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table></div>
+      </div>`;
+  } catch (error) {
+    view().innerHTML = errorBanner(error);
+  }
+}
+
+async function screenSettings() {
+  view().innerHTML = loading();
+  try {
+    const me = await api('GET', '/auth/me');
+    const user = me.user || me;
+    view().innerHTML = `
+      <div class="card">
+        <h2>Session</h2>
+        <p class="sub">What the API says about you. Roles and permissions are decided server-side; nothing here can be edited from this console.</p>
+        <div class="table-wrap"><table>
+          <tbody>
+            <tr><th style="width:180px">Name</th><td>${esc(user.displayName || '—')}</td></tr>
+            <tr><th>Email</th><td class="mono">${esc(user.email || '—')}</td></tr>
+            <tr><th>Roles</th><td>${(user.roles || []).map((r) => `<span class="pill pill-accent">${esc(r)}</span>`).join(' ') || '—'}</td></tr>
+            <tr><th>Max classification</th><td>${pill(user.maxClassification)}</td></tr>
+            <tr><th>MFA satisfied</th><td>${user.mfaSatisfied
+              ? '<span class="pill pill-positive">YES</span>'
+              : '<span class="pill pill-caution">NO</span>'}</td></tr>
+            <tr><th>Session expires</th><td>${user.expiresAt ? esc(new Date(user.expiresAt).toLocaleString()) : '—'}</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+      <div class="card">
+        <h2>Console</h2>
+        <p class="sub">This front end is a static page plus a reverse proxy. It stores an access token in <code>sessionStorage</code> for the life of the tab and holds nothing else.</p>
+        <div class="banner banner-info">
+          <div>This console performs no authorization of its own. Controls it hides are hidden as a courtesy; the API refuses the same request identically when called directly.</div>
+        </div>
+      </div>`;
+  } catch (error) {
+    view().innerHTML = errorBanner(error);
+  }
+}
+
+/* ---- Noelia ------------------------------------------------------- */
+
+function renderTranscript() {
+  const box = document.getElementById('transcript');
+  if (!box) return;
+
+  if (state.transcript.length === 0) {
+    box.innerHTML = `<div class="empty">Ask a question to begin. Noelia answers only from records you are already authorized to read.</div>`;
+    return;
+  }
+
+  box.innerHTML = state.transcript.map((turn) => {
+    if (turn.role === 'USER') {
+      return `<div class="msg msg-user"><div class="who">You</div><div class="body">${esc(turn.content)}</div></div>`;
+    }
+    const cites = (turn.citations || []).length
+      ? `<div class="citations">${turn.citations.map((c) => `
+          <div class="citation"><span class="ref">${esc(c.ref)}</span> — ${esc(c.label)}: ${esc(c.detail)}</div>`).join('')}
+        </div>`
+      : '';
+    // Provenance is always shown, never only on failure. An operator must be
+    // able to tell retrieval from analysis without reading the release notes.
+    const provenance = turn.model === 'stub-deterministic'
+      ? `<div class="provenance"><strong>Deterministic stub — no language model.</strong>
+           This answer is a direct reading of records matched by term overlap. It is retrieval, not analysis, and must not be relied on as judgement.</div>`
+      : `<div class="provenance">Answered by <code>${esc(turn.model)}</code>. Verify against the cited records before acting.</div>`;
+    const ungrounded = turn.ungrounded
+      ? `<div class="banner banner-warn" style="margin:9px 0 0"><div>No records in your scope supported an answer. Nothing was inferred.</div></div>`
+      : '';
+    return `<div class="msg msg-assistant">
+      <div class="who">Noelia</div>
+      <div class="body">${esc(turn.content)}</div>
+      ${ungrounded}${cites}${provenance}
+    </div>`;
+  }).join('');
+  box.scrollTop = box.scrollHeight;
+}
+
+async function screenNoelia() {
+  view().innerHTML = `
+    <div class="banner banner-info">
+      <div>
+        <strong>Noelia advises. Noelia does not act.</strong>
+        Questions are answered only from records you can already read. Any proposal that
+        would change capital, ownership, governance, compliance or the organization is
+        recorded for a named human to approve — and approving it still does not execute it.
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Ask Noelia</h2>
+      <p class="sub">Grounded in the control plane. Every answer cites the records it used, or says it has none.</p>
+      <div id="transcript" style="max-height:460px;overflow-y:auto;margin-bottom:15px"></div>
+      <form id="ask-form">
+        <div class="field">
+          <textarea id="question" placeholder="e.g. What operating systems are registered, and which is the core control plane?" required></textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="btn btn-primary" type="submit" id="ask-btn">Ask</button>
+          <button class="btn" type="button" id="new-thread">New conversation</button>
+          <span id="ask-status" style="font-size:12.5px;color:rgb(var(--ink-muted))"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Recommendations awaiting human decision</h2>
+      <p class="sub">
+        Accepting a recommendation records that you agree with it. It does not carry it out.
+        Enacting the change is a separate, deliberate act through the owning domain, under
+        your own authorization and your own audit record.
+      </p>
+      <div id="recs">${loading()}</div>
+    </div>
+
+    <div class="card">
+      <h2>AI action log</h2>
+      <p class="sub">Every action Noelia attempted and the verdict it received — including refusals. A log of only what was allowed cannot answer what the agent tried to do.</p>
+      <div id="ailog">${loading()}</div>
+    </div>`;
+
+  renderTranscript();
+
+  document.getElementById('ask-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const input = document.getElementById('question');
+    const question = input.value.trim();
+    if (!question) return;
+
+    const btn = document.getElementById('ask-btn');
+    const status = document.getElementById('ask-status');
+    btn.disabled = true;
+    status.innerHTML = '<span class="spin"></span> Reading records in your scope…';
+
+    state.transcript.push({ role: 'USER', content: question });
+    input.value = '';
+    renderTranscript();
+
+    try {
+      const result = await api('POST', '/noelia/ask', {
+        question,
+        ...(state.conversationId ? { conversationId: state.conversationId } : {}),
+      });
+      state.conversationId = result.conversationId;
+      state.transcript.push({
+        role: 'ASSISTANT',
+        content: result.answer.content,
+        citations: result.citations,
+        model: result.model,
+        ungrounded: result.ungrounded,
+      });
+      status.textContent = '';
+    } catch (error) {
+      state.transcript.push({
+        role: 'ASSISTANT',
+        content: `That request failed: ${error.message}`,
+        citations: [], model: 'n/a', ungrounded: true,
+      });
+      status.textContent = '';
+    } finally {
+      btn.disabled = false;
+      renderTranscript();
+      loadAiLog();
+    }
+  });
+
+  document.getElementById('new-thread').addEventListener('click', () => {
+    state.conversationId = null;
+    state.transcript = [];
+    renderTranscript();
+  });
+
+  loadRecommendations();
+  loadAiLog();
+}
+
+async function loadRecommendations() {
+  const box = document.getElementById('recs');
+  if (!box) return;
+  try {
+    const page = await api('GET', '/noelia/recommendations?limit=25');
+    if (page.items.length === 0) {
+      box.innerHTML = `<div class="empty">No recommendations on record.</div>`;
+      return;
+    }
+
+    box.innerHTML = page.items.map((r) => {
+      const pending = r.status === 'PENDING_REVIEW';
+      const confidence = r.confidenceBps === null || r.confidenceBps === undefined
+        ? '—' : `${(r.confidenceBps / 100).toFixed(1)}%`;
+      return `
+        <div class="rec">
+          <div class="rec-head">
+            <h3>${esc(r.title)}</h3>
+            ${pill(r.status)} ${pill(r.category)} ${r.impact ? pill(r.impact) : ''}
+          </div>
+          <div style="font-size:13px;color:rgb(var(--ink-muted))">${esc(r.rationale)}</div>
+          <pre class="json">${esc(JSON.stringify(r.proposedAction, null, 2))}</pre>
+          <div class="rec-meta">
+            Confidence ${confidence} · raised ${when(r.createdAt)}
+            ${r.approverRoles?.length ? `<br>Requires one of: ${r.approverRoles.map((x) => `<span class="pill pill-accent">${esc(x)}</span>`).join(' ')}` : ''}
+            ${r.reviewedBy ? `<br>Decided by <strong>${esc(r.reviewedByName || r.reviewedBy)}</strong> on ${when(r.reviewedAt)}${r.reviewNotes ? ` — “${esc(r.reviewNotes)}”` : ''}` : ''}
+          </div>
+          ${pending ? `
+            <div style="margin-top:12px;display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+              <button class="btn btn-sm btn-primary" data-review="ACCEPTED" data-id="${esc(r.id)}">Accept (does not execute)</button>
+              <button class="btn btn-sm" data-review="REJECTED" data-id="${esc(r.id)}">Reject</button>
+              <span style="font-size:12px;color:rgb(var(--ink-subtle))">A decision is final and cannot be reopened.</span>
+            </div>` : ''}
+        </div>`;
+    }).join('');
+
+    box.querySelectorAll('[data-review]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const decision = btn.dataset.review;
+        const notes = window.prompt(
+          decision === 'ACCEPTED'
+            ? 'Accepting records your agreement — it does NOT make the change.\n\nNotes for the record (optional):'
+            : 'Notes for the record (optional):',
+        );
+        if (notes === null) return;
+
+        box.querySelectorAll('[data-review]').forEach((b) => { b.disabled = true; });
+        try {
+          const updated = await api('POST', `/noelia/recommendations/${btn.dataset.id}/review`, {
+            decision, ...(notes ? { notes } : {}),
+          });
+          if (decision === 'ACCEPTED') {
+            window.alert(
+              'Recorded as ACCEPTED against your name.\n\n' +
+              'The change has NOT been made. To carry it out, go to the owning ' +
+              'domain and make the change yourself:\n\n' +
+              JSON.stringify(updated.proposedAction, null, 2),
+            );
+          }
+        } catch (error) {
+          window.alert(`Review failed.\n\n${error.message}`);
+        } finally {
+          loadRecommendations();
+          loadAiLog();
+        }
+      });
+    });
+  } catch (error) {
+    box.innerHTML = errorBanner(error);
+  }
+}
+
+async function loadAiLog() {
+  const box = document.getElementById('ailog');
+  if (!box) return;
+  try {
+    const page = await api('GET', '/noelia/action-log?limit=25');
+    if (page.items.length === 0) {
+      box.innerHTML = `<div class="empty">No AI actions recorded.</div>`;
+      return;
+    }
+    box.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr><th>When</th><th>Action</th><th>Resource</th><th>Verdict</th><th>Reason</th></tr></thead>
+      <tbody>${page.items.map((e) => `
+        <tr>
+          <td>${when(e.occurredAt)}</td>
+          <td class="mono">${esc(e.action)}</td>
+          <td>${esc(e.resourceType)}</td>
+          <td>${pill(e.decision)}${e.downgradedToRecommendation ? ' <span class="pill pill-caution">DOWNGRADED</span>' : ''}</td>
+          <td style="font-size:12.5px;color:rgb(var(--ink-muted))">${esc(e.reason)}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+  } catch (error) {
+    box.innerHTML = errorBanner(error);
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ * Router
+ * ------------------------------------------------------------------ */
+
+const SCREENS = {
+  dashboard: screenDashboard,
+  organization: screenOrganization,
+  integrations: screenIntegrations,
+  audit: screenAudit,
+  settings: screenSettings,
+  noelia: screenNoelia,
+};
+
+const NOT_BUILT_NOTE = {
+  ownership: 'Ownership ledger, cap tables and beneficial-ownership chains.',
+  governance: 'Boards, committees, resolutions and meeting records.',
+  countries: 'Country holding companies and per-jurisdiction regulatory profiles.',
+  sectors: 'Sector LLCs and the boundary at which BEYU OS hands off to a sector OS.',
+  tenants: 'Tenant provisioning and per-tenant isolation settings. Row-level security is already enforced in the database; this screen would administer it.',
+  strategy: 'Strategic objectives, initiatives and KPI tracking.',
+  risks: 'Risk register, appetite thresholds and mitigation ownership.',
+  compliance: 'Obligations, filings and per-jurisdiction compliance calendars.',
+  capital: 'Capital accounts, commitments, calls and allocations.',
+  waterfall: 'Versioned distribution rule sets and the scenario engine. Strategic decisioning only — Finance OS executes.',
+  documents: 'Document vault with classification and retention.',
+  workflows: 'Approval workflows and delegated authority.',
+  reports: 'Report definitions, scheduling and distribution.',
+  notifications: 'Notification rules, channels and delivery history.',
+};
+
+function route() {
+  const id = (location.hash.replace('#', '') || 'dashboard');
+  const entry = ROUTES.find((r) => r.id === id);
+  state.route = entry ? id : 'dashboard';
+
+  const label = ROUTES.find((r) => r.id === state.route)?.label ?? 'Dashboard';
+  document.getElementById('page-title').textContent = label;
+  renderNav();
+
+  const screen = SCREENS[state.route];
+  if (screen) { screen(); return; }
+  view().innerHTML = notBuilt(label, NOT_BUILT_NOTE[state.route] || 'Not yet implemented.');
+}
+
+/* ------------------------------------------------------------------ *
+ * Session
+ * ------------------------------------------------------------------ */
+
+function showApp(user) {
+  state.user = user;
+  document.getElementById('login').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  document.getElementById('who').textContent = user?.email || '';
+  route();
+}
+
+function showLogin(message) {
+  state.token = null;
+  sessionStorage.removeItem(TOKEN_KEY);
+  document.getElementById('app').classList.add('hidden');
+  document.getElementById('login').classList.remove('hidden');
+  const box = document.getElementById('login-error');
+  if (message) { box.textContent = message; box.classList.remove('hidden'); }
+  else box.classList.add('hidden');
+}
+
+document.getElementById('login-form').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span> Signing in…';
+  try {
+    const result = await api('POST', '/auth/login', {
+      email: document.getElementById('email').value,
+      password: document.getElementById('password').value,
+    });
+    state.token = result.accessToken;
+    sessionStorage.setItem(TOKEN_KEY, state.token);
+    document.getElementById('password').value = '';
+    showApp(result.user);
+  } catch (error) {
+    // The API answers identically for an unknown account and a wrong
+    // password. Do not elaborate here and undo that.
+    showLogin(error.status === 401 ? 'Those credentials were not accepted.' : error.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+});
+
+document.getElementById('logout-btn').addEventListener('click', async () => {
+  try { await api('POST', '/auth/logout', {}); } catch { /* sign out locally regardless */ }
+  state.conversationId = null;
+  state.transcript = [];
+  showLogin();
+});
+
+document.getElementById('theme-btn').addEventListener('click', () => {
+  const dark = document.documentElement.classList.toggle('dark');
+  localStorage.setItem('beyu.console.theme', dark ? 'dark' : 'light');
+});
+
+window.addEventListener('hashchange', () => { if (state.token) route(); });
+
+(async function start() {
+  if (localStorage.getItem('beyu.console.theme') === 'light') {
+    document.documentElement.classList.remove('dark');
+  }
+  if (!state.token) { showLogin(); return; }
+  try {
+    const me = await api('GET', '/auth/me');
+    showApp(me.user || me);
+  } catch {
+    showLogin('Your session has expired. Sign in again.');
+  }
+})();
+</script>
+</body>
+</html>
