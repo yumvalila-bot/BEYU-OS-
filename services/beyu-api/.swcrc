@@ -1,0 +1,20 @@
+{
+  "$schema": "https://swc.rs/schema.json",
+  "//": "esbuild (used by tsx) cannot emit `design:paramtypes`, which NestJS needs for DI and for the ValidationPipe to identify DTO classes. Running dev and tests through SWC keeps the runtime behaviour identical to the compiled tsc build.",
+  "jsc": {
+    "parser": {
+      "syntax": "typescript",
+      "decorators": true
+    },
+    "transform": {
+      "legacyDecorator": true,
+      "decoratorMetadata": true
+    },
+    "target": "es2022",
+    "keepClassNames": true
+  },
+  "module": {
+    "type": "commonjs"
+  },
+  "sourceMaps": true
+}

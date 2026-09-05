@@ -1,0 +1,157 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+# A newer push supersedes an in-flight run on the same ref.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '9.12.3'
+  # CI runs against the embedded PostgreSQL (WASM) build, which is real
+  # PostgreSQL and needs no service container.
+  BEYU_ENV: testing
+  DATABASE_DRIVER: pglite
+
+jobs:
+  verify:
+    name: Typecheck, lint and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  migrations:
+    name: Migrations apply against PostgreSQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Verifies the schema against a real PostgreSQL server, not only the
+    # embedded build, so server-specific behaviour is exercised too.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: beyu
+          POSTGRES_PASSWORD: beyu_ci_password
+          POSTGRES_DB: beyu_os_ci
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U beyu -d beyu_os_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_DRIVER: postgres
+      DATABASE_URL: postgresql://beyu:beyu_ci_password@localhost:5432/beyu_os_ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm db:migrate
+
+      - name: Migrations are idempotent
+        run: pnpm db:migrate
+
+      - name: Seed reference data
+        run: pnpm db:seed
+
+      - name: Verify the audit hash chain
+        run: pnpm --filter @beyu/api db:verify-audit
+
+  guardrails:
+    name: Specification guardrails
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # These are project rules that must never regress, checked independently
+      # of the linter so they hold even if the lint config is edited.
+      - name: The parent organization is never renamed
+        run: |
+          # The forbidden name is permitted only in the files whose job is to
+          # reject or document it. Anywhere else, something was actually named
+          # "BEYU GROUP". Keep this allowlist short and deliberate.
+          allowed='^\./(packages/types/src/organization\.(ts|test\.ts)|services/beyu-api/test/organizations\.e2e\.test\.ts|services/beyu-api/migrations/000[1237]_[a-z_]+\.sql|eslint\.config\.mjs|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|docs/[A-Z_]+\.md|docs/ci/ci\.yml|\.github/workflows/ci\.yml)$'
+          violations=0
+          while IFS= read -r file; do
+            if ! echo "$file" | grep -qE "$allowed"; then
+              echo "::error file=$file::The parent entity is BEYU FAMILY TRUST. 'BEYU GROUP' must not appear here."
+              violations=1
+            fi
+          done < <(grep -rlniE 'BEYU[[:space:]]+GROUP' \
+                     --include='*.ts' --include='*.tsx' --include='*.sql' \
+                     --include='*.dart' --include='*.md' --include='*.json' \
+                     --include='*.mjs' --include='*.yml' \
+                     --exclude-dir=node_modules --exclude-dir=dist \
+                     --exclude-dir=.git . || true)
+          [ "$violations" -eq 0 ] || exit 1
+          echo "OK: no forbidden organization name."
+
+      - name: No committed secrets
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|\.env\.(local|production|staging)$|\.pem$|\.p12$|(^|/)id_rsa'; then
+            echo "::error::A secret-bearing file is tracked in git."
+            exit 1
+          fi
+          echo "OK: no secret files tracked."
+
+      - name: Nx is not introduced
+        run: |
+          if git ls-files | grep -qE '(^|/)nx\.json$'; then
+            echo "::error::This repository uses Turborepo. nx.json must not exist."
+            exit 1
+          fi
+          echo "OK: Turborepo only."
+
+      - name: The audit trail stays append-only
+        run: |
+          # No migration may grant UPDATE or DELETE on the audit log.
+          if grep -rniE 'GRANT[[:space:]]+(UPDATE|DELETE|ALL)[^;]*ON[^;]*audit\.audit_log' \
+              services/beyu-api/migrations; then
+            echo "::error::Audit records must remain append-only."
+            exit 1
+          fi
+          echo "OK: audit trail remains append-only."

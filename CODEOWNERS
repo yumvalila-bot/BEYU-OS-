@@ -1,0 +1,50 @@
+# BEYU OS — code ownership and required reviewers.
+#
+# Ownership follows the governance structure: the areas that carry the most
+# risk (authorization, audit, ownership records, capital and the waterfall)
+# require review from the accountable function, not just any engineer.
+#
+# Replace the placeholder teams with real GitHub teams before enabling
+# branch protection.
+
+# Default owner for anything not matched below.
+*                               @beyu-family-trust/technology
+
+# --- Security-critical: authorization, audit, cryptography -----------------
+/packages/auth/                 @beyu-family-trust/security @beyu-family-trust/technology
+/packages/security/             @beyu-family-trust/security @beyu-family-trust/technology
+/services/beyu-api/src/core/    @beyu-family-trust/security @beyu-family-trust/technology
+/services/beyu-api/src/modules/audit/  @beyu-family-trust/security @beyu-family-trust/technology
+/SECURITY.md                    @beyu-family-trust/security
+
+# --- Shared contracts: changes ripple across every operating system --------
+/packages/types/                @beyu-family-trust/architecture @beyu-family-trust/technology
+
+# --- Database schema: migrations are effectively irreversible in production -
+/services/beyu-api/migrations/  @beyu-family-trust/architecture @beyu-family-trust/technology
+
+# --- Capital and waterfall: financial decisioning ---------------------------
+/services/beyu-api/src/modules/waterfall/  @beyu-family-trust/finance-governance @beyu-family-trust/technology
+/services/beyu-api/src/modules/capital/    @beyu-family-trust/finance-governance @beyu-family-trust/technology
+
+# --- Ownership and governance records ---------------------------------------
+/services/beyu-api/src/modules/ownership/  @beyu-family-trust/legal @beyu-family-trust/technology
+/services/beyu-api/src/modules/governance/ @beyu-family-trust/legal @beyu-family-trust/technology
+
+# --- AI boundary: recommendation must stay separate from execution ----------
+/services/noelia/               @beyu-family-trust/ai-governance @beyu-family-trust/technology
+/services/hive/                 @beyu-family-trust/ai-governance @beyu-family-trust/technology
+
+# --- Infrastructure and deployment ------------------------------------------
+/infrastructure/                @beyu-family-trust/platform
+/.github/workflows/             @beyu-family-trust/platform
+/docker-compose.yml             @beyu-family-trust/platform
+
+# --- Frontend ----------------------------------------------------------------
+/apps/beyu-web/                 @beyu-family-trust/web
+/flutter/                       @beyu-family-trust/mobile
+/packages/ui/                   @beyu-family-trust/web
+
+# --- Governance documents -----------------------------------------------------
+/CONTRIBUTING.md                @beyu-family-trust/technology
+/CODEOWNERS                     @beyu-family-trust/technology
