@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beyu-health-api
+  namespace: beyu-health
+  labels:
+    app: beyu-health-api
+    sector: health
+    os: health-os
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: beyu-health-api
+  template:
+    metadata:
+      labels:
+        app: beyu-health-api
+    spec:
+      containers:
+        - name: health-api
+          image: beyu/health-api:1.0.0
+          ports:
+            - containerPort: 4001
+          env:
+            - name: BEYU_ENV
+              value: production
+            - name: HEALTH_API_PORT
+              value: "4001"
+            - name: DATABASE_DRIVER
+              value: postgres
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: beyu-health-db
+                  key: url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: beyu-health-secrets
+                  key: jwt_secret
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: beyu-health-redis
+                  key: url
+            - name: CORS_ORIGINS
+              value: https://health.beyu.africa,https://app.beyu.africa
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: 4001
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health/ready
+              port: 4001
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 500m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+      imagePullSecrets:
+        - name: beyu-registry
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: beyu-health-api
+  namespace: beyu-health
+spec:
+  selector:
+    app: beyu-health-api
+  ports:
+    - port: 4001
+      targetPort: 4001
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: beyu-health-web
+  namespace: beyu-health
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: beyu-health-web
+  template:
+    metadata:
+      labels:
+        app: beyu-health-web
+    spec:
+      containers:
+        - name: health-web
+          image: beyu/health-web:1.0.0
+          ports:
+            - containerPort: 3001
+          env:
+            - name: NEXT_PUBLIC_HEALTH_API_URL
+              value: https://api.health.beyu.africa
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3001
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: beyu-health-web
+  namespace: beyu-health
+spec:
+  selector:
+    app: beyu-health-web
+  ports:
+    - port: 3001
+      targetPort: 3001
+  type: ClusterIP

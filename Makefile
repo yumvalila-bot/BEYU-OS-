@@ -5,7 +5,7 @@
 SHELL := /bin/bash
 
 .PHONY: help install dev build test typecheck lint clean \
-        up down logs db-migrate db-seed db-reset verify-audit check
+        up down logs db-migrate db-seed db-reset health-db-status verify-audit check
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -59,6 +59,9 @@ db-seed: ## Load structural reference data
 
 db-reset: ## Drop and rebuild the database (refuses in production)
 	pnpm db:reset
+
+health-db-status: ## Read-only Health OS migration status (never mutates)
+	pnpm health:db:status
 
 verify-audit: ## Recompute and verify the audit hash chain
 	pnpm --filter @beyu/api db:verify-audit

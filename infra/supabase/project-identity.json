@@ -1,0 +1,25 @@
+{
+  "application": "BEYU HEALTH OS",
+  "associatedProject": {
+    "label": "A",
+    "ref": "ztulvqnvtxmiejnvdcit",
+    "publicUrl": "https://ztulvqnvtxmiejnvdcit.supabase.co",
+    "role": "identified production/associated project",
+    "useFromLocalDevelopment": false
+  },
+  "unassociatedProject": {
+    "label": "B",
+    "ref": "siyzygezdmlxbvwttrdz",
+    "publicUrl": "https://siyzygezdmlxbvwttrdz.supabase.co",
+    "role": "exists but is not wired to this application",
+    "doNotMigrate": true,
+    "doNotReset": true
+  },
+  "rules": [
+    "Never commit database passwords, publishable secrets mixed with service-role keys, or .env files.",
+    "Never run supabase db reset or db:reset against either project.",
+    "Never apply Health OS SQL migrations to Supabase without an explicit ALLOW_SUPABASE_MIGRATE=yes override after a read-only status check.",
+    "Local development uses pglite or docker-compose.health.yml, not project A.",
+    "Secret/service-role keys stay in NestJS (services/beyu-health-api) only."
+  ]
+}

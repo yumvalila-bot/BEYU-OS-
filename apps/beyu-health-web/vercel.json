@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm --filter @beyu/health-types build && pnpm --filter @beyu/health-web build",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../packages/health-types ../../packages/health-api-client ../../pnpm-lock.yaml ../../pnpm-workspace.yaml"
+}
