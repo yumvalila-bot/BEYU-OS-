@@ -1,28 +1,42 @@
 <div align="center">
 
-# BEYU OS
+# BEYU OS ECOSYSTEM
 
-**The organizational, governance, strategic, capital-allocation, risk,
-compliance and intelligence control plane of BEYU FAMILY TRUST.**
+**BEYU OS — Organizational control plane + BEYU HEALTH OS — Complete Healthcare Operating System**
 
-`v1.0.0` · Proprietary and confidential
+`v1.0.0` · Proprietary and confidential · BEYU FAMILY TRUST
+
+BEYU HEALTH OS branch: `Feature/health-os` | `arena/019ff409-beyu-os`
 
 </div>
 
 ---
 
-## What BEYU OS is
+## Ecosystem Overview
 
-BEYU OS is the system of record for how BEYU FAMILY TRUST is structured, owned,
-governed and directed. It holds the organizational hierarchy, ownership
-records, governance decisions, strategic objectives, risk and compliance
-posture, capital allocation and the distribution waterfall — with a
-tamper-evident audit trail beneath all of it.
+This repository contains the **BEYU OS Ecosystem** with two major operating systems:
 
-It is a **control plane**, not an operations system. BEYU OS decides; the
-sector operating systems execute.
+### BEYU OS (Control Plane)
+The system of record for how BEYU FAMILY TRUST is structured, owned, governed and directed. Holds organizational hierarchy, ownership, governance decisions, strategic objectives, risk/compliance posture, capital allocation, waterfall — with tamper-evident audit trail.
 
-## Where BEYU OS ends
+### BEYU HEALTH OS (Health Sector OS) — NEW
+Complete healthcare operating system unifying:
+
+**Clinical:** Patient longitudinal record, EHR, encounters, conditions (ICD-10/11/SNOMED), observations (LOINC), vitals, notes, care plans, procedures, referrals, care teams.
+
+**Operations:** Appointments (universal scheduling engine), triage & emergency, inpatient/bed management, pharmacy (safety checks allergy/duplicate/interaction/dose), lab (specimen tracking, critical results), radiology (PACS/DICOM/DICOMweb), inventory & supply chain, workforce, ambulance & dispatch (GPS), telemedicine (video/audio/messaging).
+
+**Ophthalmology — First-Class Differentiator:** ocular/systemic/family/medication/trauma history, visual acuity distance/pinhole/near/BCVA/color/contrast/visual fields, refraction sphere/cylinder/axis/prism/add, external/pupil/motility/binocular, slit-lamp, IOP Goldmann/NCT/Tonopen/iCare with pachymetry, gonioscopy openness/Shaffer/Spaeth, fundus retina/macula/optic nerve/vitreous/vessels, disease templates glaucoma/cataract/DR/HTN/vascular/uveitis/corneal/neuro/peds/low vision, imaging fundus/OCT/OCTA/visual field/topography/pachymetry/biometry/keratometry/slit-lamp/external/FA/ICG, optical prescriptions, surgery, tele-ophthalmology.
+
+**Financial:** Billing & revenue cycle (service catalog, pricing, invoices, payments, reconciliation), Insurance (NHIF/private/corporate/government, beneficiaries, eligibility, authorizations, claims adjudication, remittance, Tanzania NHIF successor architecture).
+
+**Governance:** Compliance (TZ packs MOH/MTUHA/NHIF/TMDA/TRA/Data Protection + ISO-27001/HIPAA), policies, approval workflows, quality indicators, incident reporting, MTUHA reporting, audit hash chain tamper-evident, access logs, break-glass.
+
+**AI:** Noelia (canonical AI identity) → HIVE runtime → Specialized Engines (Clinical, Ophthalmology, Pharmacy, Lab, Radiology, Operational, Financial, Executive, Compliance, Supply Chain) with pipeline Identity → Authorization → Tenant → Data Permission → RAG Knowledge Retrieval (source/version/owner/jurisdiction/trust level) → Reasoning → Safety → Human Approval → Action → Audit. Governed with RBAC/ABAC/tenant isolation/purpose-of-use/human-in-loop.
+
+**Interoperability:** FHIR R4/R5, HL7 v2, DICOM/DICOMweb, LOINC/SNOMED/ICD-10/11/RxNorm/UCUM/openEHR, DHIS2, NHIF/TMDA/TRA, PACS, lab analyzers, payment gateways.
+
+## Architecture Boundaries
 
 ```
                     BEYU FAMILY TRUST
@@ -30,8 +44,7 @@ sector operating systems execute.
             ┌───────────────┴───────────────┐
             │                               │
    BEYU HOLDING COMPANY            BEYU FOUNDATION
-            │                      (sister organization,
-            │                       independent FOUNDATION OS)
+            │                      (sister, independent FOUNDATION OS)
    Country Holding Companies
             │
       Sector LLCs
@@ -39,147 +52,159 @@ sector operating systems execute.
             │
    Health OS · Finance OS · Agriculture OS
    (sector operations — governed independently)
+
+BEYU HEALTH OS Digital:
+BEYU OS CONTROL PLANE (Governance/Capital/Corporate/Identity/Risk/Strategy)
+  ↓ APIs / beyu.* events
+BEYU HEALTH OS (Operational: patients, clinical, pharmacy, lab, radiology, ophthalmology, etc.)
+  ↓
+Tenants → Facilities → Departments → Users/Providers/Patients
 ```
 
 Two boundaries are load-bearing and enforced in code:
+- **BEYU OS governs down to Sector LLC and no further.** Sector ops belong to sector OSs.
+- **BEYU FOUNDATION is sister of HOLDING, not subsidiary.** Attaches directly to Trust.
+- Parent is **BEYU FAMILY TRUST**. Never "BEYU GROUP" — rejected by domain, DB CHECK, lint, CI.
 
-**BEYU OS governs down to the Sector LLC and no further.** Everything inside a
-sector belongs to that sector's own operating system. BEYU OS does not absorb
-sector operations, does not merge those systems into itself, and does not
-invent new ones. Cross-system integration happens only through versioned APIs,
-events and contracts — never shared database access.
+## Implementation Status
 
-**BEYU FOUNDATION is a sister of BEYU HOLDING COMPANY, not a subsidiary.** It
-attaches directly to the Trust and runs an independent FOUNDATION OS. Placing
-it beneath the holding company is rejected by the hierarchy validator and by a
-database constraint.
+### BEYU OS Control Plane (original)
+- **Solid:** Schema, authorization engine, audit chain, waterfall engine, AI governance, API runtime, auth, organization, OS registry, Noelia governance — 292 tests passing
+- **Partial:** Two front ends 6-7 live routes
+- **See:** `docs/IMPLEMENTATION_STATUS.md`
 
-The parent entity is **BEYU FAMILY TRUST**. It is never "BEYU GROUP" — that
-name is rejected by the domain model, by a database CHECK constraint, by a lint
-rule and by a CI guardrail.
+### BEYU HEALTH OS (new, this branch)
+- **Implemented:** Full domain model (10 migrations), patient/clinical/scheduling/triage/inpatient/pharmacy/inventory/lab/radiology/ophthalmology (first-class)/billing/insurance/ambulance/telemedicine/workforce/documents/notifications/reporting/compliance/governance/audit/ai/integration — 27 NestJS modules, modular monolith
+- **Implemented:** Security model RBAC/ABAC/tenant RLS, audit hash chain SHA256 app-layer + trigger, Noelia governed with purpose-of-use and human-in-loop
+- **Implemented:** API surface 40+ endpoints versioned REST /api/v1 with OpenAPI Swagger, PGlite + Postgres, seed Tanzania HQ
+- **Implemented:** Web app @beyu/health-web Next.js 14 Tailwind, BEYU branding navy/gold/white, AppShell, executive dashboard, ophthalmology dedicated, patient search, workspaces for all domains, auth login
+- **Partial:** Mobile Flutter offline-first scaffolded (backend ready: encrypted local storage + sync queue via event outbox), e2e tests for tenant isolation/ophthalmology/pharmacy safety/lab critical/Noelia refusal, Redis/S3/Kafka drivers STUBBED (config exists, fails loudly), K8s/Terraform empty
+- **See:** `docs/HEALTH_OS_ARCHITECTURE.md` and `docs/HEALTH_OS_IMPLEMENTATION_STATUS.md`
 
-## Implementation status
+## Getting Started
 
-This release is a **backend foundation with a partial product surface over it.**
-The data model, security model, authorization engine, audit chain, waterfall
-engine, authentication, the organization and OS-registry domains and Noelia's
-governance layer are built and tested. Most other domain endpoints are not, and
-the screens that would consume them are placeholders that show nothing rather
-than mock data.
-
-**Read [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) before
-planning against this repository.** It labels every feature IMPLEMENTED,
-PARTIALLY IMPLEMENTED, STUBBED or DEFERRED, and does not overstate anything.
-
-| | |
-| --- | --- |
-| **Solid** | Schema and database-enforced invariants · authorization engine · audit chain · waterfall engine · AI governance · API runtime · auth · organization · OS registry · Noelia governance |
-| **Partial** | Two front ends covering 6–7 routes each; the remainder are honest placeholders |
-| **Missing** | Most domain REST handlers · mobile app · HIVE service |
-| **Not real** | Noelia's model provider (deterministic stub, retrieval not analysis) · Kafka driver, Redis, S3 and external connectors — all STUBBED and failing loudly |
-| **Verified** | 292 tests passing · typecheck clean across 12 projects · zero lint errors |
-
-## Getting started
-
-Requires Node 22+ and pnpm 9.12.3. Docker is optional.
+Requires Node 20+ and pnpm 9.12.3.
 
 ```bash
 corepack enable && corepack prepare pnpm@9.12.3 --activate
 pnpm install
 cp .env.example .env
-
-# No Docker needed: PostgreSQL 16 compiled to WASM runs in-process
-pnpm db:migrate && pnpm db:seed
-pnpm dev
-
-# Or against real infrastructure
-make up && pnpm db:migrate && pnpm db:seed
+# Control plane (BEYU OS)
+pnpm --filter @beyu/api db:migrate && pnpm --filter @beyu/api db:seed
+pnpm --filter @beyu/api dev
+# Health OS
+pnpm --filter @beyu/health-api db:migrate && pnpm --filter @beyu/health-api db:seed
+pnpm --filter @beyu/health-api dev
+# Web apps
+pnpm --filter @beyu/web dev        # BEYU OS control plane web :3000
+pnpm --filter @beyu/health-web dev # BEYU HEALTH OS web :3001
+# Docker (optional)
+docker compose up -d
+docker compose -f docker-compose.yml -f docker-compose.health.yml up -d
 ```
 
-The API listens on `http://localhost:4000`, with OpenAPI at `/api/docs`.
+- Control plane API: http://localhost:4000/api/docs
+- Health OS API: http://localhost:4001/api/docs
+- Health OS Web: http://localhost:3001
+- Control plane Web: http://localhost:3000
+
+Health endpoint:
 
 ```bash
-curl http://localhost:4000/api/v1/health
+curl http://localhost:4001/api/v1/health
 ```
 
-The operator console needs no build and no install:
+## Deployment pipeline
 
-```bash
-BEYU_API_ORIGIN=http://127.0.0.1:4000 PORT=8080 node apps/beyu-console/server.mjs
+```
+Arena (this branch) → GitHub → Vercel (Health web, NEW project)
+                              → NestJS API (not the marketing Vercel project)
+                              → Supabase PostgreSQL project A
 ```
 
-Useful commands:
+| Surface | Binding |
+|---|---|
+| Marketing site | **Unchanged** at https://beyu-health-os11.vercel.app/ (`beyu-health-os1.1`) |
+| Health OS web | Separate Vercel project. Template: `apps/beyu-health-web/vercel.json` and `infra/vercel/health-web.project.json` |
+| Health OS API | NestJS (`services/beyu-health-api`). Not deployed by the marketing Vercel project |
+| Database | Supabase project **A** `ztulvqnvtxmiejnvdcit` — identity only in `infra/supabase/project-identity.json` |
+| Project B | `siyzygezdmlxbvwttrdz` — **not** used |
 
-```bash
-make check       # typecheck + lint + test
-make verify-audit  # recompute and verify the audit hash chain
-make help        # everything else
-```
+Local and CI stay on PGlite / docker-compose. `pnpm health:db:status` is read-only. `db:reset` and unattended migrations are refused against Supabase. Secret keys stay in NestJS; the Next.js app only receives `NEXT_PUBLIC_HEALTH_API_URL`.
 
-## Repository layout
+This environment has GitHub access but no Vercel token. Creating the Health web Vercel project and setting server secrets must be done in the Vercel dashboard (do **not** relink `beyu-health-os1.1`).
+
+## Repository Layout
 
 | Path | Contents |
-| --- | --- |
-| `services/beyu-api` | NestJS control-plane API — the system of record |
-| `services/hive` | HIVE AI service *(deferred)* |
-| `apps/beyu-web` | Next.js web application *(partial — 6 live routes)* |
-| `apps/beyu-console` | Dependency-free operator console *(partial — 7 live routes, incl. Noelia)* |
-| `flutter/beyu` | Adaptive Flutter mobile application *(deferred)* |
-| `packages/types` | Canonical shared contracts |
-| `packages/auth` | Authorization policy engine and AI governance |
-| `packages/security` | Audit chain, password hashing, tokens |
+|---|---|
+| `services/beyu-api` | NestJS control-plane API |
+| `services/beyu-health-api` | NestJS Health OS API — full healthcare OS |
+| `apps/beyu-web` | Next.js control-plane web (6 live routes) |
+| `apps/beyu-console` | Dependency-free operator console |
+| `apps/beyu-health-web` | Next.js Health OS clinical/admin/executive web |
+| `packages/types` | BEYU OS shared contracts |
+| `packages/health-types` | Health OS canonical domain contracts |
+| `packages/auth` | Authorization policy + AI governance |
+| `packages/security` | Audit chain, crypto, tokens |
 | `packages/events` | Versioned event bus |
-| `packages/config` | Environment configuration with fail-fast validation |
-| `infrastructure/` | Docker, Kubernetes, Terraform, monitoring |
-| `docs/` | Implementation status and design notes |
+| `packages/config` | Env config fail-fast |
+| `docs/` | Implementation status, architecture, OS federation, health OS docs |
+| `infra/` | Docker/K8s/Terraform (deferred) |
 
-## Design principles
+## Design Principles (enforced by code/tests/CI)
 
-These are enforced by code, tests and CI rather than left to convention. The
-full list is in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+- **Deny-by-default authorization** — every request via policy engine, missing permission fails closed, UI never decides.
+- **Frontends never touch DB** — API only, no shared DB across OSs.
+- **Append-only audit** — SHA256 hash chain, immutable, 3 layers enforcement, tampering detection.
+- **Nothing hard-coded** — ownership %, waterfall rules, country regulations are config/data, no country special-case in source.
+- **History never rewritten** — waterfall rules versioned, calculations pin version + input hash.
+- **Money never float** — integer minor units, basis points, explicit rounding.
+- **AI recommends; humans execute** — Noelia/HIVE no unrestricted DB, cannot bypass authZ, cannot exceed user, mutations downgraded to recommendation awaiting approval, auditable retrieval with purpose-of-use.
+- **Honest status** — stub fails loudly, never mock data in governance console.
 
-**Authorization is deny-by-default and lives in the backend.** Every request is
-evaluated by the policy engine. An endpoint that declares no required
-permission is denied rather than served, so a forgotten annotation fails
-closed. The UI never decides access.
+## BEYU HEALTH OS — Tenant Model
 
-**Frontends never touch the database.** Clients reach data only through the
-authorized API, and no operating system shares a database with another.
+```
+BEYU → Country → Sector Operating (Health LLC) → Tenant (Hospital Group, Hospital, Clinic, Eye Center, Pharmacy, Lab, Imaging, Ambulance, Telemedicine, Insurer, Corporate, NGO, Public, Individual)
+  → Facility (Hospital, Clinic, Eye Clinic, Pharmacy, Lab, Imaging, Ambulance Base, Warehouse)
+    → Departments → Rooms → Beds → Equipment
+      → Users / Providers / Patients
+```
 
-**The audit trail is append-only.** Records are SHA-256 chained and immutable,
-enforced in three independent layers. Tampering breaks the chain and is
-detected.
+Tenant isolation enforced at: DB (RLS GUC app.tenant), API authorization, files (tenant path), clinical/financial records, AI retrieval (tenant-filtered RAG), analytics, events, audit logs, integrations.
 
-**Nothing business-specific is hard-coded.** Ownership percentages, waterfall
-rules and country regulations are configuration and data. No country is
-special-cased in source.
+## Ophthalmology Differentiator
 
-**History is never rewritten.** Waterfall rules are versioned; a completed
-calculation pins its rule version and input hash. Changing rules creates a new
-version and leaves past results intact.
+BEYU HEALTH OS contains first-class ophthalmology — not an add-on:
 
-**Money is never a float.** Amounts are integer minor units, percentages are
-integer basis points, and rounding is explicit.
+History: ocular, systemic, family, medication, previous surgeries, trauma
+Visual: VA unaided/aided/pinhole/near/BCVA/color/contrast/visual fields
+Refraction: sphere/cylinder/axis/prism/add/BCVA subjective/objective
+External, Pupil, Motility, Binocular
+Slit-Lamp, IOP (Goldmann/NCT/Tonopen/iCare), Gonioscopy (openness/Shaffer/Spaeth), Fundus (retina/macula/optic nerve/vitreous/vessels)
+Diagnoses: glaucoma, cataract, DR, hypertensive, vascular, uveitis, corneal, neuro, peds, low vision, refractive
+Imaging: fundus photo, OCT, OCTA, VF, topography, pachymetry, biometry, keratometry, slit-lamp/external/FA/ICG/B/A-scan
+Optical Rx: single/bifocal/progressive/contact/low vision, surgery with IOL, tele-ophthalmology
+Analytics: patient volumes, disease patterns, procedures, outcomes — plus executive/ophthalmology dashboards.
 
-**AI recommends; humans execute.** Noelia and HIVE hold no unrestricted
-database access, cannot bypass authorization, and cannot exceed the user they
-act for. Every mutation is downgraded to a recommendation awaiting human
-approval.
+## AI Governance — Noelia & HIVE
 
-**Implementation status is reported honestly.** A stub fails loudly rather than
-pretending to work.
+- **Identity:** Noelia canonical AI of BEYU ecosystem, via HIVE runtime, NOT unrestricted autonomous agent.
+- **Obey:** RBAC, ABAC, tenant isolation, purpose-of-use, data permissions, clinical safety, governance, audit, human accountability.
+- **Pipeline:** Request → Identity verification → Authorization → Context resolution → Tenant resolution → Data permission check → Knowledge retrieval (tenant-filtered, no uncontrolled authoritative) → Reasoning → Safety validation → Human approval if required → Action/Recommendation → Audit.
+- **Safety:** Must not silently diagnose, prescribe, alter records, execute high-risk without human auth. Distinguishes information/recommendation/warning/prediction/CDS/authorized action. High-risk needs explicit confirmation.
+- **Kill switch:** AI_ENABLED, driver stub vs openai-compatible, apiKeyRef is reference not secret, refusal to start prod with stub when explicitly enabled.
+- **Knowledge:** RAG with source/version/owner/effective/expiry/jurisdiction/trust level, tenant-specific, no uncontrolled docs authoritative.
 
 ## Security
 
-Security policy, threat model and reporting process:
-[`SECURITY.md`](SECURITY.md). Never commit `.env` files, keys or credentials.
+Policy, threat model, reporting: `SECURITY.md`. Never commit `.env`, keys, credentials. JWT secret 32+ chars enforced in prod. MFA, RBAC/ABAC, tenant isolation, secure sessions rotation, rate limiting, CSRF/XSS/SQL injection via ValidationPipe whitelist/forbidNonWhitelisted, secure headers, input validation, file scanning hook, audit logging, anomaly detection, backup, DR — zero-trust.
 
 ## Contributing
 
-See [`CONTRIBUTING.md`](CONTRIBUTING.md) for setup, the non-negotiable rules and
-review expectations.
+See `CONTRIBUTING.md`.
 
 ## Licence
 
-Proprietary and confidential. Copyright © 2026 BEYU FAMILY TRUST. All rights
-reserved. See [`LICENSE`](LICENSE).
+Proprietary and confidential. Copyright © 2026 BEYU FAMILY TRUST. All rights reserved. See `LICENSE`.

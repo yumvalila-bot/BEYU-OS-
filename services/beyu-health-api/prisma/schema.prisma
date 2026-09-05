@@ -1,0 +1,216 @@
+// BEYU HEALTH OS — Prisma Schema
+// Production-grade healthcare operating system domain model
+// PostgreSQL with tenant isolation, audit hash chain, clinical governance
+// NOTE: The authoritative migrations are raw SQL (0001-0010) for RLS, hash chain, performance, PGlite compatibility.
+// This file documents the logical model and enables Prisma client generation for tooling.
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  schemas  = ["health_identity", "health_tenant", "health_patient", "health_clinical", "health_scheduling", "health_pharmacy", "health_inventory", "health_lab", "health_radiology", "health_ophthalmology", "health_billing", "health_insurance", "health_ambulance", "health_telemedicine", "health_workforce", "health_documents", "health_notifications", "health_reporting", "health_compliance", "health_governance", "health_audit", "health_ai", "health_integration", "public"]
+}
+
+// Enums mirror health-types package
+enum TenantType {
+  HOSPITAL_GROUP
+  HOSPITAL
+  CLINIC
+  MEDICAL_CENTER
+  EYE_CENTER
+  PHARMACY
+  LABORATORY
+  IMAGING_CENTER
+  AMBULANCE_SERVICE
+  TELEMEDICINE_ORG
+  HEALTH_INSURER
+  CORPORATE_HEALTH
+  NGO_HEALTH
+  PUBLIC_HEALTH
+  INDIVIDUAL_PRACTICE
+  @@schema("health_tenant")
+}
+
+enum TenantStatus {
+  PROVISIONING
+  ACTIVE
+  SUSPENDED
+  CLOSED
+  @@schema("health_tenant")
+}
+
+enum PatientGender {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+  @@schema("health_patient")
+}
+
+enum EncounterClass {
+  AMBULATORY
+  EMERGENCY
+  INPATIENT
+  OUTPATIENT
+  HOME
+  VIRTUAL
+  FIELD
+  @@schema("health_clinical")
+}
+
+// Core identity — health specific, linked to BEYU OS global identity via identity_id
+model User {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identityId     String?  @map("identity_id") @db.Uuid
+  email          String
+  displayName    String   @map("display_name")
+  passwordHash   String?  @map("password_hash")
+  status         String   @default("ACTIVE")
+  mfaEnabled     Boolean  @default(false) @map("mfa_enabled")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  @@map("users")
+  @@schema("health_identity")
+}
+
+model Tenant {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  slug         String   @unique
+  type         String
+  status       String   @default("PROVISIONING")
+  countryCode  String   @default("TZ") @map("country_code")
+  settings     Json     @default("{}")
+  branding     Json     @default("{}")
+  dataResidency Json    @map("data_residency")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  facilities   Facility[]
+  @@map("tenants")
+  @@schema("health_tenant")
+}
+
+model Facility {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      String
+  type      String
+  code      String
+  status    String   @default("ACTIVE")
+  address   String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  departments Department[]
+  @@unique([tenantId, code])
+  @@map("facilities")
+  @@schema("health_tenant")
+}
+
+model Department {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  facilityId String   @map("facility_id") @db.Uuid
+  name       String
+  code       String
+  status     String   @default("ACTIVE")
+  facility   Facility @relation(fields: [facilityId], references: [id])
+  @@map("departments")
+  @@schema("health_tenant")
+}
+
+model Patient {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String    @map("tenant_id") @db.Uuid
+  mrn         String
+  firstName   String    @map("first_name")
+  lastName    String    @map("last_name")
+  middleName  String?   @map("middle_name")
+  gender      String
+  dateOfBirth DateTime  @map("date_of_birth") @db.Date
+  phone       String?
+  email       String?
+  bloodGroup  String?   @map("blood_group")
+  status      String    @default("ACTIVE")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  encounters  Encounter[]
+  @@unique([tenantId, mrn])
+  @@map("patients")
+  @@schema("health_patient")
+}
+
+model Encounter {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  patientId      String    @map("patient_id") @db.Uuid
+  facilityId     String    @map("facility_id") @db.Uuid
+  class          String
+  status         String    @default("PLANNED")
+  type           String?
+  reason         String?
+  periodStart    DateTime  @default(now()) @map("period_start") @db.Timestamptz
+  periodEnd      DateTime? @map("period_end") @db.Timestamptz
+  patient        Patient   @relation(fields: [patientId], references: [id])
+  @@map("encounters")
+  @@schema("health_clinical")
+}
+
+model OphthalmologyExam {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  patientId        String   @map("patient_id") @db.Uuid
+  encounterId      String   @map("encounter_id") @db.Uuid
+  chiefComplaint   String?  @map("chief_complaint")
+  examinationType  String   @default("COMPREHENSIVE") @map("examination_type")
+  plan             String?
+  examinerId       String   @map("examiner_id") @db.Uuid
+  status           String   @default("IN_PROGRESS")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@map("ophthalmology_exams")
+  @@schema("health_ophthalmology")
+}
+
+model Invoice {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  patientId    String   @map("patient_id") @db.Uuid
+  invoiceNumber String  @map("invoice_number")
+  status       String   @default("DRAFT")
+  totalMinor   BigInt   @map("total_minor")
+  paidMinor    BigInt   @default(0) @map("paid_minor")
+  balanceMinor BigInt   @default(0) @map("balance_minor")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@unique([tenantId, invoiceNumber])
+  @@map("invoices")
+  @@schema("health_billing")
+}
+
+model AuditEvent {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String?  @map("tenant_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  action       String
+  resourceType String   @map("resource_type")
+  resourceId   String?  @map("resource_id") @db.Uuid
+  hash         String
+  previousHash String?  @map("previous_hash")
+  chainIndex   BigInt   @map("chain_index")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@map("audit_events")
+  @@schema("health_audit")
+}
+
+model NoeliaConversation {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  patientId   String?  @map("patient_id") @db.Uuid
+  title       String?
+  contextType String?  @map("context_type")
+  purposeOfUse String  @map("purpose_of_use")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  @@map("noelia_conversations")
+  @@schema("health_ai")
+}

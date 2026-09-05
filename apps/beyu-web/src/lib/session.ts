@@ -1,10 +1,7 @@
 /**
  * Server-side session handling.
- *
- * Access and refresh tokens live in httpOnly, sameSite=strict cookies. They
- * are never serialised into a page payload and never readable from client
- * JavaScript, so a cross-site script cannot exfiltrate a session the way it
- * could with localStorage. Everything in this file runs on the server only.
+ * Next.js 15+ cookies() is async — all helpers are async to support both versions.
+ * Tokens live in httpOnly, sameSite=strict cookies, never in page payload.
  */
 
 import { cookies } from 'next/headers';
@@ -12,7 +9,6 @@ import { cookies } from 'next/headers';
 export const ACCESS_COOKIE = 'beyu_at';
 export const REFRESH_COOKIE = 'beyu_rt';
 
-/** Deployments behind TLS get Secure cookies; local http development cannot. */
 const secure = process.env.NODE_ENV === 'production';
 
 export interface SessionUser {
@@ -22,12 +18,12 @@ export interface SessionUser {
   roles: string[];
 }
 
-export function readAccessToken(): string | null {
-  return cookies().get(ACCESS_COOKIE)?.value ?? null;
+export async function readAccessToken(): Promise<string | null> {
+  return (await cookies()).get(ACCESS_COOKIE)?.value ?? null;
 }
 
-export function readRefreshToken(): string | null {
-  return cookies().get(REFRESH_COOKIE)?.value ?? null;
+export async function readRefreshToken(): Promise<string | null> {
+  return (await cookies()).get(REFRESH_COOKIE)?.value ?? null;
 }
 
 export interface TokenPair {
@@ -36,8 +32,8 @@ export interface TokenPair {
   expiresIn: number;
 }
 
-export function writeSession(tokens: TokenPair): void {
-  const jar = cookies();
+export async function writeSession(tokens: TokenPair): Promise<void> {
+  const jar = await cookies();
   jar.set(ACCESS_COOKIE, tokens.accessToken, {
     httpOnly: true,
     sameSite: 'strict',
@@ -50,26 +46,16 @@ export function writeSession(tokens: TokenPair): void {
     sameSite: 'strict',
     secure,
     path: '/',
-    // Refresh tokens rotate on every use; the API owns their real lifetime.
     maxAge: 60 * 60 * 24 * 14,
   });
 }
 
-export function clearSession(): void {
-  const jar = cookies();
+export async function clearSession(): Promise<void> {
+  const jar = await cookies();
   jar.delete(ACCESS_COOKIE);
   jar.delete(REFRESH_COOKIE);
 }
 
-/**
- * Decodes the JWT payload for display purposes only.
- *
- * This is NOT verification. The signature is checked by the API on every
- * request; nothing here grants access. It exists so the shell can render a
- * name and role chips without an extra round trip, and it must never be used
- * to decide whether an action is permitted — that decision belongs to the
- * backend, which is the only place it cannot be bypassed.
- */
 export function decodeForDisplay(token: string): Record<string, unknown> | null {
   const segments = token.split('.');
   if (segments.length !== 3) return null;

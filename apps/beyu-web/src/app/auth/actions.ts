@@ -44,20 +44,17 @@ export async function loginAction(
     });
   } catch (error) {
     if (error instanceof ApiError) {
-      // The API returns an identical message for an unknown account and a
-      // wrong password so the endpoint cannot be used to enumerate users.
-      // Surfacing it verbatim keeps that property intact.
       return { message: error.message };
     }
     throw error;
   }
 
-  writeSession(result);
+  await writeSession(result);
   redirect('/dashboard');
 }
 
 export async function logoutAction(): Promise<void> {
-  const refreshToken = readRefreshToken();
+  const refreshToken = await readRefreshToken();
   if (refreshToken) {
     try {
       await apiFetch<void>('/auth/logout', {
@@ -66,10 +63,9 @@ export async function logoutAction(): Promise<void> {
         anonymous: true,
       });
     } catch {
-      // Server-side revocation failing must not strand the user in a signed-in
-      // shell. The cookies are cleared regardless.
+      // Server-side revocation failing must not strand the user
     }
   }
-  clearSession();
+  await clearSession();
   redirect('/auth/login');
 }

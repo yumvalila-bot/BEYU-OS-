@@ -55,3 +55,8 @@ flutter/**/pubspec.lock
 *.tfstate
 *.tfstate.*
 .terraform/
+
+# local platform CLIs — never commit link state or tokens
+.vercel/
+.supabase/
+supabase/.temp/

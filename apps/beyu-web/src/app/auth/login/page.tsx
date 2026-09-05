@@ -9,13 +9,11 @@ import { LoginForm } from './login-form';
 export const metadata: Metadata = { title: 'Sign in' };
 export const dynamic = 'force-dynamic';
 
-export default function LoginPage() {
-  if (readAccessToken()) redirect('/dashboard');
+export default async function LoginPage() {
+  if (await readAccessToken()) redirect('/dashboard');
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
-      {/* Brand panel. Navy and gold, and on small screens it collapses away
-          entirely rather than pushing the form below the fold. */}
       <div className="hidden flex-col justify-between bg-navy-950 p-10 lg:flex">
         <div className="flex items-center gap-3">
           <BrandMark size={36} />

@@ -1,0 +1,22 @@
+name: beyu_health_mobile
+description: BEYU HEALTH OS — Flutter mobile/tablet/desktop clinical app
+publish_to: 'none'
+version: 1.0.0+1
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.0
+  dio: ^5.4.0
+  hive_flutter: ^1.1.0
+  flutter_secure_storage: ^9.0.0
+  connectivity_plus: ^5.0.2
+  workmanager: ^0.5.2
+  camera: ^0.10.5
+  flutter_webrtc: ^0.9.48
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+flutter:
+  uses-material-design: true
