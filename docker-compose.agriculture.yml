@@ -1,0 +1,65 @@
+# BEYU AGRICULTURE OS — local development stack extension
+# Extends the beyu-os stack with agriculture-specific services.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.agriculture.yml up -d
+#   Agriculture variant includes a dedicated Postgres database so the sector
+#   OS never shares storage with the control plane or Health OS (spec §71:
+#   no shared databases across federation boundaries).
+#
+# Ports (assigned from the BEYU port ladder, after health's 5433/4001):
+#   5434 — agriculture Postgres
+#   4002 — agriculture API
+
+name: beyu-agriculture-os
+
+services:
+  postgres-agriculture:
+    image: postgres:16-alpine
+    container_name: beyu-agriculture-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: beyu_agriculture
+      POSTGRES_PASSWORD: beyu_agriculture_dev
+      POSTGRES_DB: beyu_agriculture_os
+      POSTGRES_INITDB_ARGS: '--locale=C --encoding=UTF8'
+    ports:
+      - '5434:5432'
+    volumes:
+      - postgres-agriculture-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U beyu_agriculture -d beyu_agriculture_os']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  agriculture-api:
+    image: node:20-alpine
+    container_name: beyu-agriculture-api
+    working_dir: /app
+    command: ['sh', '-c', 'corepack enable && pnpm --filter @beyu/agriculture-api dev']
+    ports:
+      - '4002:4002'
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/services/beyu-api/dist
+      - /app/services/beyu-agriculture-api/dist
+    environment:
+      BEYU_ENV: development
+      PORT: 4002
+      AGRICULTURE_API_PORT: 4002
+      DATABASE_DRIVER: postgres
+      DATABASE_URL: postgresql://beyu_agriculture:beyu_agriculture_dev@postgres-agriculture:5432/beyu_agriculture_os
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-only-insecure-secret-change-me-012345678901234567
+      JWT_ISSUER: beyu-agriculture-os
+      CORS_ORIGINS: http://localhost:3000,http://localhost:3001
+      EVENT_DRIVER: inmemory
+    depends_on:
+      postgres-agriculture:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-agriculture-data:
