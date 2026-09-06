@@ -4,7 +4,7 @@ import type { Database } from '../../db/driver';
 import { AuditRepository } from '../audit/audit.repository';
 import { DomainRepository, resolveLimit, resolveOffset, type Page } from '../../common/domain.repository';
 import type { AgriSecurityContext } from '../../common/security';
-import { notFound, badRequest, forbidden } from '../../common/errors';
+import { notFound, badRequest, forbidden, conflict } from '../../common/errors';
 
 /** Certifications, inspections and lot traceability. */
 @Injectable()
@@ -41,19 +41,42 @@ export class ComplianceRepository extends DomainRepository {
 
   async createCertification(security: AgriSecurityContext, input: { tenantId?: string; farmId?: string | null; certificationType: string; certificateNumber: string; issuedOn?: string | null; expiresOn?: string | null; issuedBy?: string | null; scopeNotes?: string | null }): Promise<any> {
     if (!input.certificationType || !input.certificateNumber) badRequest('certificationType and certificateNumber are required');
+    // Snapshot to plain locals up front: defensive against any downstream
+    // mutation of the request body object between validation and the write.
+    const certNumber = String(input.certificateNumber);
+    const certType = String(input.certificationType);
     const tenantId = this.tenantOf(security, input.tenantId);
     if (!tenantId) badRequest('tenant membership required');
     return this.mutate(security, async (session) => {
       if (input.farmId) {
-        const farm = await session.query(`SELECT id FROM agri_farm.farms WHERE id=$1 AND deleted_at IS NULL`, [input.farmId]);
+        const farm = await session.query<any>(`SELECT * FROM agri_farm.farms WHERE id=$1 AND deleted_at IS NULL`, [input.farmId]);
         if (!farm.rows[0]) notFound('farm', input.farmId);
+        this.assertRowVisible(security, farm.rows[0], 'farm', input.farmId);
       }
       if (input.issuedOn && input.expiresOn && input.expiresOn < input.issuedOn) badRequest('expiresOn must be after issuedOn');
-      const res = await session.query<{ id: string }>(
-        `INSERT INTO agri_compliance.certifications (tenant_id, farm_id, certification_type, certificate_number, status, issued_on, expires_on, issued_by, scope_notes)
-         VALUES ($1,$2,$3,$4,'CERTIFIED',$5,$6,$7,$8) RETURNING id`,
-        [tenantId, input.farmId ?? null, input.certificationType, input.certificateNumber, input.issuedOn ?? null, input.expiresOn ?? null, input.issuedBy ?? null, input.scopeNotes ?? null],
-      );
+      // Duplicate certificate numbers are a business conflict (409). The
+      // SELECT pre-check covers production Postgres; on the embedded PGLite
+      // dev/test driver a repeated parameterized SELECT text inside a
+      // context transaction can serve a stale empty result, so the INSERT's
+      // unique constraint (certs_tenant_number_unique) is the authoritative
+      // backstop and is mapped to the same 409.
+      const dupe = await session.query(`SELECT id FROM agri_compliance.certifications WHERE tenant_id=$1 AND certificate_number=$2 AND deleted_at IS NULL`, [tenantId, certNumber]);
+      if (dupe.rows[0]) conflict('certificate number already exists in tenant');
+      let res: { rows: Array<{ id: string }> };
+      const insParams = [tenantId, input.farmId ?? null, certType, certNumber, input.issuedOn ?? null, input.expiresOn ?? null, input.issuedBy ?? null, input.scopeNotes ?? null];
+      try {
+          res = await session.query<{ id: string }>(
+          `INSERT INTO agri_compliance.certifications (tenant_id, farm_id, certification_type, certificate_number, status, issued_on, expires_on, issued_by, scope_notes) /*v3*/
+           VALUES ($1,$2,$3,$4,'CERTIFIED',$5,$6,$7,$8) RETURNING id`,
+          insParams,
+        );
+      } catch (err: unknown) {
+          const e = err as { constraint?: string; code?: string; message?: string };
+        if ((e.constraint ?? '').includes('certs_tenant_number_unique') || e.code === '23505' || (e.message ?? '').includes('certs_tenant_number_unique')) {
+          conflict('certificate number already exists in tenant');
+        }
+        throw err;
+      }
       const row = await session.query(`SELECT * FROM agri_compliance.certifications WHERE id=$1`, [res.rows[0].id]);
       return row.rows[0];
     }, (result) => ({
@@ -66,9 +89,15 @@ export class ComplianceRepository extends DomainRepository {
     const tenantId = this.tenantOf(security, input.tenantId);
     if (!tenantId) badRequest('tenant membership required');
     return this.mutate(security, async (session) => {
+      if (input.farmId) {
+        const farm = await session.query<any>(`SELECT * FROM agri_farm.farms WHERE id=$1 AND deleted_at IS NULL`, [input.farmId]);
+        if (!farm.rows[0]) notFound('farm', input.farmId);
+        this.assertRowVisible(security, farm.rows[0], 'farm', input.farmId);
+      }
       if (input.certificationId) {
         const cert = await session.query<any>(`SELECT * FROM agri_compliance.certifications WHERE id=$1 AND deleted_at IS NULL FOR UPDATE`, [input.certificationId]);
         if (!cert.rows[0]) notFound('certification', input.certificationId);
+        this.assertRowVisible(security, cert.rows[0], 'certification', input.certificationId);
         if (input.result === 'FAIL') {
           await session.query(`UPDATE agri_compliance.certifications SET status='SUSPENDED', updated_at=now() WHERE id=$1`, [input.certificationId]);
         }
