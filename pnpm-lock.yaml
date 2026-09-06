@@ -101,6 +101,21 @@ importers:
         specifier: ^5.6.3
         version: 5.9.3
 
+  packages/agriculture-types:
+    devDependencies:
+      '@swc-node/register':
+        specifier: ^1.10.9
+        version: 1.12.1(@swc/core@1.15.47)(@swc/types@0.1.28)(typescript@5.9.3)
+      '@swc/core':
+        specifier: ^1.10.1
+        version: 1.15.47
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+
   packages/auth:
     dependencies:
       '@beyu/types':
@@ -193,6 +208,86 @@ importers:
         version: 4.23.12
       typescript:
         specifier: ^5.6.3
+        version: 5.9.3
+
+  services/beyu-agriculture-api:
+    dependencies:
+      '@beyu/agriculture-types':
+        specifier: workspace:*
+        version: link:../../packages/agriculture-types
+      '@beyu/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
+      '@beyu/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@beyu/events':
+        specifier: workspace:*
+        version: link:../../packages/events
+      '@beyu/security':
+        specifier: workspace:*
+        version: link:../../packages/security
+      '@beyu/types':
+        specifier: workspace:*
+        version: link:../../packages/types
+      '@nestjs/common':
+        specifier: ^11.1.29
+        version: 11.1.29(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^11.1.29
+        version: 11.1.29(@nestjs/common@11.1.29(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.29)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: ^11.1.29
+        version: 11.1.29(@nestjs/common@11.1.29(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.29)
+      '@nestjs/schedule':
+        specifier: ^6.1.3
+        version: 6.1.3(@nestjs/common@11.1.29(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.29)
+      '@nestjs/swagger':
+        specifier: ^11.4.6
+        version: 11.4.6(@nestjs/common@11.1.29(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.29)(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)
+      class-transformer:
+        specifier: ^0.5.1
+        version: 0.5.1
+      class-validator:
+        specifier: ^0.14.1
+        version: 0.14.4
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.1
+        version: 7.8.2
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    optionalDependencies:
+      '@electric-sql/pglite':
+        specifier: ^0.2.17
+        version: 0.2.17
+      pg:
+        specifier: ^8.13.1
+        version: 8.23.0
+    devDependencies:
+      '@nestjs/testing':
+        specifier: ^11.1.29
+        version: 11.1.29(@nestjs/common@11.1.29(class-transformer@0.5.1)(class-validator@0.14.4)(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.29)(@nestjs/platform-express@11.1.29)
+      '@swc-node/register':
+        specifier: ^1.10.9
+        version: 1.12.1(@swc/core@1.15.47)(@swc/types@0.1.28)(typescript@5.9.3)
+      '@swc/core':
+        specifier: ^1.10.1
+        version: 1.15.47
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
+      '@types/node':
+        specifier: ^22.10.2
+        version: 22.20.1
+      '@types/pg':
+        specifier: ^8.11.10
+        version: 8.21.0
+      typescript:
+        specifier: ^5.7.2
         version: 5.9.3
 
   services/beyu-api:
@@ -1758,6 +1853,7 @@ packages:
   eslint@9.39.5:
     resolution: {integrity: sha512-DgZS62aPLXKlnxILS/AYCoRvHaZeXceIzlXPkkGGzJWSow1aEk0lbTlxUSlyjC8jcaKxAdOnTDz+o1JFSBsyjw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: This version is no longer supported. Please see https://eslint.org/version-support for other options.
     hasBin: true
     peerDependencies:
       jiti: '*'
