@@ -1,0 +1,1 @@
+export const DATABASE = Symbol('BEYU_AGRICULTURE_DATABASE');
